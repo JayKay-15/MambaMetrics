@@ -1,0 +1,671 @@
+#### team & player stats ####
+
+# transition stats
+# weekly dive into playtype
+
+library(tidyverse)
+library(data.table)
+library(magrittr)
+library(lubridate)
+library(nbastatR)
+library(gt)
+library(gtExtras)
+
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+
+### colors ----
+pal_hex <- c("#762a83", "#af8dc3", "#e7d4e8", "#f7f7f7",
+             "#d9f0d3", "#7fbf7b", "#1b7837")
+
+pal_hex_rev <- c("#1b7837", "#7fbf7b", "#d9f0d3", "#f7f7f7",
+                 "#e7d4e8", "#af8dc3", "#762a83")
+
+
+team_stats <- function(x) {
+    
+    ### colors ----
+    pal_hex <- c("#762a83", "#af8dc3", "#e7d4e8", "#f7f7f7",
+                 "#d9f0d3", "#7fbf7b", "#1b7837")
+    
+    pal_hex_rev <- c("#1b7837", "#7fbf7b", "#d9f0d3", "#f7f7f7",
+                     "#e7d4e8", "#af8dc3", "#762a83")
+    
+    if (x == 'Base') {
+        
+        ### team base stats ----
+        headers = c(
+            `Accept` = '*/*',
+            `Origin` = 'https://www.nba.com',
+            `Accept-Encoding` = 'gzip, deflate, br',
+            `Host` = 'stats.nba.com',
+            `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+            `Accept-Language` = 'en-US,en;q=0.9',
+            `Referer` = 'https://www.nba.com/',
+            `Connection` = 'keep-alive'
+        )
+        
+        ### pull base ----
+        params = list(
+            `Conference` = '',
+            `DateFrom` = '',
+            `DateTo` = '',
+            `Division` = '',
+            `GameScope` = '',
+            `GameSegment` = '',
+            `Height` = '',
+            `LastNGames` = '0',
+            `LeagueID` = '00',
+            `Location` = '',
+            `MeasureType` = 'Base',
+            `Month` = '0',
+            `OpponentTeamID` = '0',
+            `Outcome` = '',
+            `PORound` = '0',
+            `PaceAdjust` = 'N',
+            `PerMode` = 'PerGame',
+            `Period` = '0',
+            `PlayerExperience` = '',
+            `PlayerPosition` = '',
+            `PlusMinus` = 'N',
+            `Rank` = 'N',
+            `Season` = '2022-23',
+            `SeasonSegment` = '',
+            `SeasonType` = 'Regular Season',
+            `ShotClockRange` = '',
+            `StarterBench` = '',
+            `TeamID` = '0',
+            `TwoWay` = '0',
+            `VsConference` = '',
+            `VsDivision` = ''
+        )
+        
+        res <- httr::GET(url = 'https://stats.nba.com/stats/leaguedashteamstats', httr::add_headers(.headers=headers), query = params)
+        data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+        column_names <- data$headers %>% as.character()  
+        dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+        
+        tm_base <- dt %>% select(2,8:27)
+        
+        ### team base ----
+        tm_base %>%
+            gt() %>%
+            gt_theme_dark() %>%
+            gt_color_box(2, domain = c(min(tm_base$FGM), mean(tm_base$FGM), max(tm_base$FGM)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(3, domain = c(min(tm_base$FGA), mean(tm_base$FGA), max(tm_base$FGA)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(4, domain = c(min(tm_base$FG_PCT), mean(tm_base$FG_PCT), max(tm_base$FG_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(5, domain = c(min(tm_base$FG3M), mean(tm_base$FG3M), max(tm_base$FG3M)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(6, domain = c(min(tm_base$FG3A), mean(tm_base$FG3A), max(tm_base$FG3A)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(7, domain = c(min(tm_base$FG3_PCT), mean(tm_base$FG3_PCT), max(tm_base$FG3_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(8, domain = c(min(tm_base$FTM), mean(tm_base$FTM), max(tm_base$FTM)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(9, domain = c(min(tm_base$FTA), mean(tm_base$FTA), max(tm_base$FTA)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(10, domain = c(min(tm_base$FT_PCT), mean(tm_base$FT_PCT), max(tm_base$FT_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(11, domain = c(min(tm_base$OREB), mean(tm_base$OREB), max(tm_base$OREB)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(12, domain = c(min(tm_base$DREB), mean(tm_base$DREB), max(tm_base$DREB)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(13, domain = c(min(tm_base$REB), mean(tm_base$REB), max(tm_base$REB)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(14, domain = c(min(tm_base$AST), mean(tm_base$AST), max(tm_base$AST)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(15, domain = c(min(tm_base$TOV), mean(tm_base$TOV), max(tm_base$TOV)),
+                         palette = pal_hex_rev, accuracy = 0.1) %>%
+            gt_color_box(16, domain = c(min(tm_base$STL), mean(tm_base$STL), max(tm_base$STL)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(17, domain = c(min(tm_base$BLK), mean(tm_base$BLK), max(tm_base$BLK)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(18, domain = c(min(tm_base$BLKA), mean(tm_base$BLKA), max(tm_base$BLKA)),
+                         palette = pal_hex_rev, accuracy = 0.1) %>%
+            gt_color_box(19, domain = c(min(tm_base$PF), mean(tm_base$PF), max(tm_base$PF)),
+                         palette = pal_hex_rev, accuracy = 0.1) %>%
+            gt_color_box(20, domain = c(min(tm_base$PFD), mean(tm_base$PFD), max(tm_base$PFD)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(21, domain = c(min(tm_base$PTS), mean(tm_base$PTS), max(tm_base$PTS)),
+                         palette = pal_hex, accuracy = 0.1)
+        
+    } else if (x == "Advanced") {
+        
+        ### team adv stats ----
+        headers = c(
+            `Accept` = '*/*',
+            `Origin` = 'https://www.nba.com',
+            `Accept-Encoding` = 'gzip, deflate, br',
+            `Host` = 'stats.nba.com',
+            `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+            `Accept-Language` = 'en-US,en;q=0.9',
+            `Referer` = 'https://www.nba.com/',
+            `Connection` = 'keep-alive'
+        )
+        
+        ### pull advanced ----
+        params = list(
+            `Conference` = '',
+            `DateFrom` = '',
+            `DateTo` = '',
+            `Division` = '',
+            `GameScope` = '',
+            `GameSegment` = '',
+            `Height` = '',
+            `LastNGames` = '0',
+            `LeagueID` = '00',
+            `Location` = '',
+            `MeasureType` = 'Advanced',
+            `Month` = '0',
+            `OpponentTeamID` = '0',
+            `Outcome` = '',
+            `PORound` = '0',
+            `PaceAdjust` = 'N',
+            `PerMode` = 'PerGame',
+            `Period` = '0',
+            `PlayerExperience` = '',
+            `PlayerPosition` = '',
+            `PlusMinus` = 'N',
+            `Rank` = 'N',
+            `Season` = '2022-23',
+            `SeasonSegment` = '',
+            `SeasonType` = 'Regular Season',
+            `ShotClockRange` = '',
+            `StarterBench` = '',
+            `TeamID` = '0',
+            `TwoWay` = '0',
+            `VsConference` = '',
+            `VsDivision` = ''
+        )
+        
+        res <- httr::GET(url = 'https://stats.nba.com/stats/leaguedashteamstats', httr::add_headers(.headers=headers), query = params)
+        data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+        column_names <- data$headers %>% as.character()  
+        dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+        
+        tm_adv <- dt %>% select(2,9,11,13,14:22,24,27)
+        
+        ### team advanced ----
+        tm_adv %>%
+            gt() %>%
+            gt_theme_dark() %>%
+            gt_color_box(2, domain = c(min(tm_adv$OFF_RATING), mean(tm_adv$OFF_RATING), max(tm_adv$OFF_RATING)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(3, domain = c(min(tm_adv$DEF_RATING), mean(tm_adv$DEF_RATING), max(tm_adv$DEF_RATING)),
+                         palette = pal_hex_rev, accuracy = 0.1) %>%
+            gt_color_box(4, domain = c(min(tm_adv$NET_RATING), 0, max(tm_adv$NET_RATING)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(5, domain = c(min(tm_adv$AST_PCT), mean(tm_adv$AST_PCT), max(tm_adv$AST_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(6, domain = c(min(tm_adv$AST_TO), mean(tm_adv$AST_TO), max(tm_adv$AST_TO)),
+                         palette = pal_hex, accuracy = 0.01) %>%
+            gt_color_box(7, domain = c(min(tm_adv$AST_RATIO), mean(tm_adv$AST_RATIO), max(tm_adv$AST_RATIO)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(8, domain = c(min(tm_adv$OREB_PCT), mean(tm_adv$OREB_PCT), max(tm_adv$OREB_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(9, domain = c(min(tm_adv$DREB_PCT), mean(tm_adv$DREB_PCT), max(tm_adv$DREB_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(10, domain = c(min(tm_adv$REB_PCT), mean(tm_adv$REB_PCT), max(tm_adv$REB_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(11, domain = c(min(tm_adv$TM_TOV_PCT), mean(tm_adv$TM_TOV_PCT), max(tm_adv$TM_TOV_PCT)),
+                         palette = pal_hex_rev, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(12, domain = c(min(tm_adv$EFG_PCT), mean(tm_adv$EFG_PCT), max(tm_adv$EFG_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(13, domain = c(min(tm_adv$TS_PCT), mean(tm_adv$TS_PCT), max(tm_adv$TS_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(14, domain = c(min(tm_adv$PACE), mean(tm_adv$PACE), max(tm_adv$PACE)),
+                         palette = pal_hex, accuracy = 0.1) %>%
+            gt_color_box(15, domain = c(min(tm_adv$PIE), mean(tm_adv$PIE), max(tm_adv$PIE)),
+                         palette = pal_hex, scale = 100, accuracy = 0.1)
+        
+    } else if (x == "Scoring") {
+        
+        ### team scoring stats ----
+        headers = c(
+            `Accept` = '*/*',
+            `Origin` = 'https://www.nba.com',
+            `Accept-Encoding` = 'gzip, deflate, br',
+            `Host` = 'stats.nba.com',
+            `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+            `Accept-Language` = 'en-US,en;q=0.9',
+            `Referer` = 'https://www.nba.com/',
+            `Connection` = 'keep-alive'
+        )
+        
+        ### pull scoring ----
+        params = list(
+            `Conference` = '',
+            `DateFrom` = '',
+            `DateTo` = '',
+            `Division` = '',
+            `GameScope` = '',
+            `GameSegment` = '',
+            `Height` = '',
+            `LastNGames` = '0',
+            `LeagueID` = '00',
+            `Location` = '',
+            `MeasureType` = 'Scoring',
+            `Month` = '0',
+            `OpponentTeamID` = '0',
+            `Outcome` = '',
+            `PORound` = '0',
+            `PaceAdjust` = 'N',
+            `PerMode` = 'PerGame',
+            `Period` = '0',
+            `PlayerExperience` = '',
+            `PlayerPosition` = '',
+            `PlusMinus` = 'N',
+            `Rank` = 'N',
+            `Season` = '2022-23',
+            `SeasonSegment` = '',
+            `SeasonType` = 'Regular Season',
+            `ShotClockRange` = '',
+            `StarterBench` = '',
+            `TeamID` = '0',
+            `TwoWay` = '0',
+            `VsConference` = '',
+            `VsDivision` = ''
+        )
+        
+        res <- httr::GET(url = 'https://stats.nba.com/stats/leaguedashteamstats', httr::add_headers(.headers=headers), query = params)
+        data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+        column_names <- data$headers %>% as.character()  
+        dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+        
+        tm_scr <- dt %>% select(2,8:22)
+        
+        ### team scoring ----
+        tm_scr %>%
+            gt() %>%
+            gt_theme_dark() %>%
+            gt_color_box(2, domain = c(min(tm_scr$PCT_FGA_2PT), mean(tm_scr$PCT_FGA_2PT), max(tm_scr$PCT_FGA_2PT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(3, domain = c(min(tm_scr$PCT_FGA_3PT), mean(tm_scr$PCT_FGA_3PT), max(tm_scr$PCT_FGA_3PT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(4, domain = c(min(tm_scr$PCT_PTS_2PT), mean(tm_scr$PCT_PTS_2PT), max(tm_scr$PCT_PTS_2PT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(5, domain = c(min(tm_scr$PCT_PTS_2PT_MR), mean(tm_scr$PCT_PTS_2PT_MR), max(tm_scr$PCT_PTS_2PT_MR)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(6, domain = c(min(tm_scr$PCT_PTS_3PT), mean(tm_scr$PCT_PTS_3PT), max(tm_scr$PCT_PTS_3PT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(7, domain = c(min(tm_scr$PCT_PTS_FB), mean(tm_scr$PCT_PTS_FB), max(tm_scr$PCT_PTS_FB)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(8, domain = c(min(tm_scr$PCT_PTS_FT), mean(tm_scr$PCT_PTS_FT), max(tm_scr$PCT_PTS_FT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(9, domain = c(min(tm_scr$PCT_PTS_OFF_TOV), mean(tm_scr$PCT_PTS_OFF_TOV), max(tm_scr$PCT_PTS_OFF_TOV)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(10, domain = c(min(tm_scr$PCT_PTS_PAINT), mean(tm_scr$PCT_PTS_PAINT), max(tm_scr$PCT_PTS_PAINT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(11, domain = c(min(tm_scr$PCT_AST_2PM), mean(tm_scr$PCT_AST_2PM), max(tm_scr$PCT_AST_2PM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(12, domain = c(min(tm_scr$PCT_UAST_2PM), mean(tm_scr$PCT_UAST_2PM), max(tm_scr$PCT_UAST_2PM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(13, domain = c(min(tm_scr$PCT_AST_3PM), mean(tm_scr$PCT_AST_3PM), max(tm_scr$PCT_AST_3PM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(14, domain = c(min(tm_scr$PCT_UAST_3PM), mean(tm_scr$PCT_UAST_3PM), max(tm_scr$PCT_UAST_3PM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(15, domain = c(min(tm_scr$PCT_AST_FGM), mean(tm_scr$PCT_AST_FGM), max(tm_scr$PCT_AST_FGM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(16, domain = c(min(tm_scr$PCT_UAST_FGM), mean(tm_scr$PCT_UAST_FGM), max(tm_scr$PCT_UAST_FGM)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1)
+        
+    } else if (x == "Four Factors") {
+        
+        ### pull four factors ----
+        headers = c(
+            `Accept` = '*/*',
+            `Origin` = 'https://www.nba.com',
+            `Accept-Encoding` = 'gzip, deflate, br',
+            `Host` = 'stats.nba.com',
+            `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+            `Accept-Language` = 'en-US,en;q=0.9',
+            `Referer` = 'https://www.nba.com/',
+            `Connection` = 'keep-alive'
+        )
+        
+        params = list(
+            `Conference` = '',
+            `DateFrom` = '',
+            `DateTo` = '',
+            `Division` = '',
+            `GameScope` = '',
+            `GameSegment` = '',
+            `Height` = '',
+            `LastNGames` = '0',
+            `LeagueID` = '00',
+            `Location` = '',
+            `MeasureType` = 'Four Factors',
+            `Month` = '0',
+            `OpponentTeamID` = '0',
+            `Outcome` = '',
+            `PORound` = '0',
+            `PaceAdjust` = 'N',
+            `PerMode` = 'PerGame',
+            `Period` = '0',
+            `PlayerExperience` = '',
+            `PlayerPosition` = '',
+            `PlusMinus` = 'N',
+            `Rank` = 'N',
+            `Season` = '2022-23',
+            `SeasonSegment` = '',
+            `SeasonType` = 'Regular Season',
+            `ShotClockRange` = '',
+            `StarterBench` = '',
+            `TeamID` = '0',
+            `TwoWay` = '0',
+            `VsConference` = '',
+            `VsDivision` = ''
+        )
+        
+        res <- httr::GET(url = 'https://stats.nba.com/stats/leaguedashteamstats', httr::add_headers(.headers=headers), query = params)
+        data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+        column_names <- data$headers %>% as.character()  
+        dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+        
+        tm_ff <- dt %>% select(2,8:15)
+        
+        ### team four factors ----
+        tm_ff %>%
+            gt() %>%
+            gt_theme_dark() %>%
+            gt_color_box(2, domain = c(min(tm_ff$EFG_PCT), mean(tm_ff$EFG_PCT), max(tm_ff$EFG_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(3, domain = c(min(tm_ff$FTA_RATE), mean(tm_ff$FTA_RATE), max(tm_ff$FTA_RATE)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(4, domain = c(min(tm_ff$TM_TOV_PCT), mean(tm_ff$TM_TOV_PCT), max(tm_ff$TM_TOV_PCT)),
+                         palette = pal_hex_rev, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(5, domain = c(min(tm_ff$OREB_PCT), mean(tm_ff$OREB_PCT), max(tm_ff$OREB_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(6, domain = c(min(tm_ff$OPP_EFG_PCT), mean(tm_ff$OPP_EFG_PCT), max(tm_ff$OPP_EFG_PCT)),
+                         palette = pal_hex_rev, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(7, domain = c(min(tm_ff$OPP_FTA_RATE), mean(tm_ff$OPP_FTA_RATE), max(tm_ff$OPP_FTA_RATE)),
+                         palette = pal_hex_rev, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(8, domain = c(min(tm_ff$OPP_TOV_PCT), mean(tm_ff$OPP_TOV_PCT), max(tm_ff$OPP_TOV_PCT)),
+                         palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+            gt_color_box(9, domain = c(min(tm_ff$OPP_OREB_PCT), mean(tm_ff$OPP_OREB_PCT), max(tm_ff$OPP_OREB_PCT)),
+                         palette = pal_hex_rev, suffix = "%", scale = 100, accuracy = 0.1)
+        
+    } else {
+        
+        print("error")
+        
+    }
+    
+}
+
+team_stats("Advanced") # Base - Advanced - Scoring - Four Factors
+
+
+
+
+
+
+
+
+### player stats ----
+headers = c(
+    `Accept` = '*/*',
+    `Origin` = 'https://www.nba.com',
+    `Accept-Encoding` = 'gzip, deflate, br',
+    `Host` = 'stats.nba.com',
+    `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+    `Accept-Language` = 'en-US,en;q=0.9',
+    `Referer` = 'https://www.nba.com/',
+    `Connection` = 'keep-alive'
+)
+
+params = list(
+    `College` = '',
+    `Conference` = '',
+    `Country` = '',
+    `DateFrom` = '',
+    `DateTo` = '',
+    `Division` = '',
+    `DraftPick` = '',
+    `DraftYear` = '',
+    `GameScope` = '',
+    `GameSegment` = '',
+    `Height` = '',
+    `LastNGames` = '0',
+    `LeagueID` = '00',
+    `Location` = '',
+    `MeasureType` = 'Advanced',
+    `Month` = '0',
+    `OpponentTeamID` = '0',
+    `Outcome` = '',
+    `PORound` = '0',
+    `PaceAdjust` = 'N',
+    `PerMode` = 'PerGame',
+    `Period` = '0',
+    `PlayerExperience` = '',
+    `PlayerPosition` = '',
+    `PlusMinus` = 'N',
+    `Rank` = 'N',
+    `Season` = '2022-23',
+    `SeasonSegment` = '',
+    `SeasonType` = 'Regular Season',
+    `ShotClockRange` = '',
+    `StarterBench` = '',
+    `TeamID` = '0',
+    `VsConference` = '',
+    `VsDivision` = '',
+    `Weight` = ''
+)
+
+res <- httr::GET(url = 'https://stats.nba.com/stats/leaguedashplayerstats', httr::add_headers(.headers=headers), query = params)
+data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+column_names <- data$headers %>% as.character()  
+dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+
+pl_adv <- dt %>% select(2,5,13,16,19,21:27,29:31,34,37,38)
+
+# mean(pl_adv$POSS)
+
+pl_adv_gt <- pl_adv %>% filter(POSS >= 800)
+
+pl_adv_gt %>%
+    # filter(TEAM_ABBREVIATION == "DEN") %>%
+    arrange(desc(NET_RATING)) %>%
+    select(-18) %>%
+    gt() %>%
+    gt_theme_dark() %>%
+    gt_color_box(3, domain = c(min(pl_adv_gt$OFF_RATING),
+                               median(pl_adv_gt$OFF_RATING),
+                               max(pl_adv_gt$OFF_RATING)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(4, domain = c(min(pl_adv_gt$DEF_RATING),
+                               median(pl_adv_gt$DEF_RATING),
+                               max(pl_adv_gt$DEF_RATING)),
+                 palette = pal_hex_rev, accuracy = 0.1) %>%
+    gt_color_box(5, domain = c(min(pl_adv_gt$NET_RATING),
+                               median(pl_adv_gt$NET_RATING),
+                               max(pl_adv_gt$NET_RATING)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(6, domain = c(min(pl_adv_gt$AST_PCT),
+                               median(pl_adv_gt$AST_PCT),
+                               max(pl_adv_gt$AST_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(7, domain = c(min(pl_adv_gt$AST_TO),
+                               median(pl_adv_gt$AST_TO),
+                               max(pl_adv_gt$AST_TO)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(8, domain = c(min(pl_adv_gt$AST_RATIO),
+                               median(pl_adv_gt$AST_RATIO),
+                               max(pl_adv_gt$AST_RATIO)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(9, domain = c(min(pl_adv_gt$OREB_PCT),
+                               median(pl_adv_gt$OREB_PCT),
+                               max(pl_adv_gt$OREB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(10, domain = c(min(pl_adv_gt$DREB_PCT),
+                                median(pl_adv_gt$DREB_PCT),
+                                max(pl_adv_gt$DREB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(11, domain = c(min(pl_adv_gt$REB_PCT),
+                                median(pl_adv_gt$REB_PCT),
+                                max(pl_adv_gt$REB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(12, domain = c(min(pl_adv_gt$TM_TOV_PCT),
+                                median(pl_adv_gt$TM_TOV_PCT),
+                                max(pl_adv_gt$TM_TOV_PCT)),
+                 palette = pal_hex_rev, suffix = "%", accuracy = 0.1) %>%
+    gt_color_box(13, domain = c(min(pl_adv_gt$EFG_PCT),
+                                median(pl_adv_gt$EFG_PCT),
+                                max(pl_adv_gt$EFG_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(14, domain = c(min(pl_adv_gt$TS_PCT),
+                                median(pl_adv_gt$TS_PCT),
+                                max(pl_adv_gt$TS_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(15, domain = c(min(pl_adv_gt$USG_PCT),
+                                median(pl_adv_gt$USG_PCT),
+                                max(pl_adv_gt$USG_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(16, domain = c(min(pl_adv_gt$PACE),
+                                median(pl_adv_gt$PACE),
+                                max(pl_adv_gt$PACE)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(17, domain = c(min(pl_adv_gt$PIE),
+                                median(pl_adv_gt$PIE),
+                                max(pl_adv_gt$PIE)),
+                 palette = pal_hex, scale = 100, accuracy = 0.1)
+
+
+
+
+### game logs ----
+headers = c(
+    `Accept` = '*/*',
+    `Origin` = 'https://www.nba.com',
+    `Accept-Encoding` = 'gzip, deflate, br',
+    `Host` = 'stats.nba.com',
+    `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+    `Accept-Language` = 'en-US,en;q=0.9',
+    `Referer` = 'https://www.nba.com/',
+    `Connection` = 'keep-alive'
+)
+
+params = list(
+    `DateFrom` = '',
+    `DateTo` = '',
+    `GameSegment` = '',
+    `LastNGames` = '0',
+    `LeagueID` = '00',
+    `Location` = '',
+    `MeasureType` = 'Advanced',
+    `Month` = '0',
+    `OpponentTeamID` = '0',
+    `Outcome` = '',
+    `PORound` = '0',
+    `PaceAdjust` = 'N',
+    `PerMode` = 'Totals',
+    `Period` = '0',
+    `PlusMinus` = 'N',
+    `Rank` = 'N',
+    `Season` = '2022-23',
+    `SeasonSegment` = '',
+    `SeasonType` = 'Regular Season',
+    `ShotClockRange` = '',
+    `VsConference` = '',
+    `VsDivision` = ''
+)
+
+res <- httr::GET(url = 'https://stats.nba.com/stats/playergamelogs', httr::add_headers(.headers=headers), query = params)
+data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+column_names <- data$headers %>% as.character()  
+dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+
+gl_adv <- dt %>%
+    select(9,3,7,14,17,20,22:28,30:32,35,38,39) %>%
+    mutate(GAME_DATE = as_date(GAME_DATE))
+
+# mean(gl_adv$POSS)
+
+gl_adv_gt <- gl_adv %>%
+    filter(POSS >= 50)
+
+gl_adv_gt %>%
+    filter(PLAYER_NAME == "Kevin Durant" & GAME_DATE == "2022-11-28") %>%
+    select(c(-1,-19)) %>%
+    gt() %>%
+    gt_theme_dark() %>%
+    gt_color_box(3, domain = c(min(gl_adv_gt$OFF_RATING),
+                               median(gl_adv_gt$OFF_RATING),
+                               max(gl_adv_gt$OFF_RATING)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(4, domain = c(min(gl_adv_gt$DEF_RATING),
+                               median(gl_adv_gt$DEF_RATING),
+                               max(gl_adv_gt$DEF_RATING)),
+                 palette = pal_hex_rev, accuracy = 0.1) %>%
+    gt_color_box(5, domain = c(min(gl_adv_gt$NET_RATING),
+                               median(gl_adv_gt$NET_RATING),
+                               max(gl_adv_gt$NET_RATING)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(6, domain = c(min(gl_adv_gt$AST_PCT),
+                               median(gl_adv_gt$AST_PCT),
+                               max(gl_adv_gt$AST_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(7, domain = c(min(gl_adv_gt$AST_TO),
+                               median(gl_adv_gt$AST_TO),
+                               max(gl_adv_gt$AST_TO)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(8, domain = c(min(gl_adv_gt$AST_RATIO),
+                               median(gl_adv_gt$AST_RATIO),
+                               max(gl_adv_gt$AST_RATIO)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(9, domain = c(min(gl_adv_gt$OREB_PCT),
+                               median(gl_adv_gt$OREB_PCT),
+                               max(gl_adv_gt$OREB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(10, domain = c(min(gl_adv_gt$DREB_PCT),
+                                median(gl_adv_gt$DREB_PCT),
+                                max(gl_adv_gt$DREB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(11, domain = c(min(gl_adv_gt$REB_PCT),
+                                median(gl_adv_gt$REB_PCT),
+                                max(gl_adv_gt$REB_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(12, domain = c(min(gl_adv_gt$TM_TOV_PCT),
+                                median(gl_adv_gt$TM_TOV_PCT),
+                                max(gl_adv_gt$TM_TOV_PCT)),
+                 palette = pal_hex_rev, suffix = "%", accuracy = 0.1) %>%
+    gt_color_box(13, domain = c(min(gl_adv_gt$EFG_PCT),
+                                median(gl_adv_gt$EFG_PCT),
+                                max(gl_adv_gt$EFG_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(14, domain = c(min(gl_adv_gt$TS_PCT),
+                                median(gl_adv_gt$TS_PCT),
+                                max(gl_adv_gt$TS_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(15, domain = c(min(gl_adv_gt$USG_PCT),
+                                median(gl_adv_gt$USG_PCT),
+                                max(gl_adv_gt$USG_PCT)),
+                 palette = pal_hex, suffix = "%", scale = 100, accuracy = 0.1) %>%
+    gt_color_box(16, domain = c(min(gl_adv_gt$PACE),
+                                median(gl_adv_gt$PACE),
+                                max(gl_adv_gt$PACE)),
+                 palette = pal_hex, accuracy = 0.1) %>%
+    gt_color_box(17, domain = c(min(gl_adv_gt$PIE),
+                                median(gl_adv_gt$PIE),
+                                max(gl_adv_gt$PIE)),
+                 palette = pal_hex, scale = 100, accuracy = 0.1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
