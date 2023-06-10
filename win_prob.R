@@ -1,12 +1,24 @@
 ### Win Probability Model ----
 
 library(tidyverse)
+library(lubridate)
 library(caTools)
 library(caret)
 library(tidymodels)
 # pbp <- pbp22 %>% select(-c(locX:locY)) %>% filter(game_id == 22100001)
 # write.csv(pbp, "/Users/Jesse/Desktop/pbp.csv")
 # pbp <- read.csv(file = "/Users/Jesse/Desktop/pbp.csv")
+
+gl_adj <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
+                                "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/NBAdb.sqlite"),
+                 "GameLogsAdj") %>% collect() %>% mutate(date = as_date(date, origin ="1970-01-01"))
+
+gm_ids <- dataGameLogsTeam %>%
+    select(dateGame,idGame,nameTeam)
+
+gl_adj <- gl_adj %>%
+    left_join(gm_ids, by = c("date" = "dateGame", "away" = "nameTeam"))
+
 
 pbp22 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Analysis/NBA in R/NBA-in-R-master20221202/2022_23/regseason/pbp/pbp-poss-rs23/data.rds")
 pbp21 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Analysis/NBA in R/NBA-in-R-master20221202/2021_22/regseason/pbp/pbp-poss-rs22/data.rds")
@@ -36,9 +48,8 @@ pbp <- rbind(pbp22, pbp21, pbp20, pbp19)
 wl <- pbp %>%
     group_by(across(game_id)) %>%
     summarise(vs = max(vs),
-           hs = max(hs)) %>%
+              hs = max(hs)) %>%
     mutate(result = ifelse(vs > hs, "W", "L"))
-
 
 pbp_df <- pbp %>%
     group_by(across(game_id)) %>%
@@ -139,8 +150,14 @@ pbp_df <- pbp %>%
     left_join(wl[,c(1,4)], by = "game_id")
     # filter(game_id == 22200001)
 
+rm(pbp19, pbp20, pbp21, pbp22, pbp)
+
+gl_adj2 <- gl_adj %>%
+    select(80,10:79)
 
 
+pbp_df2 <- pbp_df %>%
+    left_join(gl_adj2, by = c("game_id" = "idGame"))
 
 # set.seed(214)
 # games <- unique(pbp_df$game_id) 
@@ -155,6 +172,12 @@ pbp_df <- pbp %>%
 train <- pbp_df %>% filter(game_date < '2022-10-01') %>% select(2,13,12,11,10,18,14,19:51) %>% as.data.frame()
 test <- pbp_df %>% filter(game_date > '2022-10-01') %>% select(2,13,12,11,10,18,14,19:51) %>% as.data.frame()
 
+train <- pbp_df2 %>% filter(game_date < '2022-10-01') %>% select(2,13,12,11,10,18,14,19:121) %>% as.data.frame()
+test <- pbp_df2 %>% filter(game_date > '2022-10-01') %>% select(2,13,12,11,10,18,14,19:121) %>% as.data.frame()
+
+train <- train[!is.na(train$FG_away), ]
+test <- test[!is.na(test$FG_away), ]
+
 # pre_proc_val <- preProcess(train[,-1], method = c("center", "scale"))
 # train[,-1] = predict(pre_proc_val, train[,-1])
 # test[,-1] = predict(pre_proc_val, test[,-1])
@@ -168,6 +191,12 @@ log_win <- train(as.factor(result) ~. -game_id -team_away -team_home, data = tra
                  method = "glm",
                  metric = "ROC",
                  family = "binomial")
+
+# log_win <- train(as.factor(result) ~ vs + hs + away_pf_cume + home_pf_cume, data = train,
+#                  trControl = ctrl,
+#                  method = "glm",
+#                  metric = "ROC",
+#                  family = "binomial")
 
 log_win
 log_win$resample
@@ -207,20 +236,20 @@ log_win_imp <- rownames_to_column(varImp(log_win)[["importance"]], "Var") %>%
     head()
 
 
-
 pbp %>%
-    filter(game_id == 22200336) %>%
+    filter(game_id == 22200334) %>%
     select(team_away, team_home, vs, hs) %>%
     group_by(team_away, team_home) %>%
     summarise(vs = max(vs),
               hs = max(hs))
 
 plot_data <- test %>% 
-filter(game_id == 22200336) %>% 
-mutate(secs_passed_game = secs_passed_game/60,
-       away_margin = vs-hs,
-       away_win_prob = ifelse(secs_passed_game == max(secs_passed_game) & away_margin > 0, 1,
-                              ifelse(secs_passed_game == max(secs_passed_game) & away_margin < 0, 0, win_pred[2])))
+    bind_cols(win_pred) %>%
+    filter(game_id == 22200334) %>% 
+    mutate(secs_passed_game = secs_passed_game/60,
+           away_margin = vs-hs,
+           away_win_prob = ifelse(secs_passed_game == max(secs_passed_game) & away_margin > 0, 1,
+                              ifelse(secs_passed_game == max(secs_passed_game) & away_margin < 0, 0, W)))
 
 
 score_labels <- plot_data[seq(1, nrow(plot_data), 20), ] %>%
