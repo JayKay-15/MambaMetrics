@@ -74,13 +74,13 @@ tab %>%
         columns = c(`FG%`:Usage),
         decimals = 1
     ) %>%
-        tab_options(
-            table.border.top.color = "white",
-            row.striping.include_table_body = FALSE
-        ) %>%
-        tab_source_note(
-            source_note = "@MambaMetrics"
-        )
+    tab_options(
+        table.border.top.color = "white",
+        row.striping.include_table_body = FALSE
+    ) %>%
+    tab_source_note(
+        source_note = "@MambaMetrics"
+    )
 
 
 
