@@ -6,18 +6,13 @@ library(fmsb)
 
 Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 # connect to db
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), 
-                        "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
 # read in team box scores
-box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                            "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                             "BoxScoreTeam")
+box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "BoxScoreTeam")
 box_score_team <- box_score_team %>%
     collect()
 # read in team dictionary
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                            "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                             "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 # disconnect from db

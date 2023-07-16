@@ -6,25 +6,18 @@ library(stringr)
 library(gt)
 
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), 
-                        "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
 DBI::dbListTables(NBAdb)
 
-player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                             "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                              "PlayerAdvanced")
+player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),"../NBAdb/nba_db.sqlite"), "PlayerAdvanced")
 player_advanced <- player_advanced %>%
     collect()
 
-player_game <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                             "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                              "PlayerPerGame")
+player_game <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "PlayerPerGame")
 player_game <- player_game %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                         "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                          "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "/../NBAdb/nba_db.sqlite"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 

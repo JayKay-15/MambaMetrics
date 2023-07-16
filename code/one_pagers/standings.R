@@ -22,17 +22,12 @@ standings <- standings %>%
 
 
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), 
-                        "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite")
-box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                            "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                             "BoxScoreTeam")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
+box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "BoxScoreTeam")
 box_score_team <- box_score_team %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                       "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                        "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 

@@ -13,25 +13,18 @@ library(readxl)
 
 # Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), 
-                        "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
 DBI::dbListTables(NBAdb)
 
-player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                            "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                             "PlayerAdvanced")
+player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "/../NBAdb/nba_db.sqlite"), "PlayerAdvanced")
 player_advanced <- player_advanced %>%
     collect()
 
-lineup <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                             "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                              "LineupStats22")
+lineup <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "LineupStats22")
 lineup <- lineup %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                       "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                        "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 
@@ -88,25 +81,18 @@ tm %>%
 ############## VORP -------------------------------------------------------------
 
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), 
-                        "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
 DBI::dbListTables(NBAdb)
 
-player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                             "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                              "AdvancedBoxScoreBREF")
+player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "AdvancedBoxScoreBREF")
 player_advanced <- player_advanced %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                       "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                        "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 
-pos <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(),
-                                 "/Users/Jesse/Documents/MyStuff/NBA Betting/NBAdb/nba_db.sqlite"),
-                  "PlayerAdvanced")
+pos <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "PlayerAdvanced")
 pos <- pos %>%
     collect()
 
