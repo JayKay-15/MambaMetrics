@@ -19,12 +19,12 @@ df.text <- data.frame(lab.text = c("+Off, +Def", "+Off, -Def", "-Off, -Def", "-O
                       x = c(bound.label-1, bound.label-1, bound.label-7, bound.label-7), 
                       y = c(bound.label-10, bound.label, bound.label, bound.label-10))
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db")
 
-box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "BoxScoreTeam") %>%
+box_score_team <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "BoxScoreTeam") %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary") %>%
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "TeamDictionary") %>%
     collect()
 DBI::dbDisconnect(NBAdb)
 

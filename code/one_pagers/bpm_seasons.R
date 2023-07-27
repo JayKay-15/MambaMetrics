@@ -13,18 +13,18 @@ library(readxl)
 
 # Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db")
 DBI::dbListTables(NBAdb)
 
-player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "/../NBAdb/nba_db.sqlite"), "PlayerAdvanced")
+player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "PlayerAdvanced")
 player_advanced <- player_advanced %>%
     collect()
 
-lineup <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "LineupStats22")
+lineup <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "LineupStats22")
 lineup <- lineup %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 
@@ -81,18 +81,18 @@ tm %>%
 ############## VORP -------------------------------------------------------------
 
 
-NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite")
+NBAdb <- DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db")
 DBI::dbListTables(NBAdb)
 
-player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "AdvancedBoxScoreBREF")
+player_advanced <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "AdvancedBoxScoreBREF")
 player_advanced <- player_advanced %>%
     collect()
 
-team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "TeamDictionary")
+team_dict <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "TeamDictionary")
 team_dict <- team_dict %>%
     collect()
 
-pos <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "PlayerAdvanced")
+pos <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "PlayerAdvanced")
 pos <- pos %>%
     collect()
 

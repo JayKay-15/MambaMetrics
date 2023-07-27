@@ -9,7 +9,7 @@ library(gtExtras)
 Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 rm(list=ls())
 
-lg_avg <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../NBAdb/nba_db.sqlite"), "league_avg_current") %>%
+lg_avg <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "league_avg_current") %>%
     collect() %>%
     mutate(Date = as_date(Date, origin ="1970-01-01"))
     
