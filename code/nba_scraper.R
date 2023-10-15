@@ -293,6 +293,3 @@ dt <- rbindlist(data$rowSet) %>% setnames(column_names)
 
 
 
-
-
-
