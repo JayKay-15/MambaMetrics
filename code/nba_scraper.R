@@ -1,7 +1,6 @@
 library(tidyverse)
 library(data.table)
 library(magrittr)
-library(lubridate)
 
 
 ### Team Tracking
@@ -292,4 +291,219 @@ dt <- rbindlist(data$rowSet) %>% setnames(column_names)
 
 
 
+#### team stats scrape ----
+# traditional
+headers = c(
+    `Sec-Fetch-Site` = "same-site",
+    `Accept` = "*/*",
+    `Origin` = "https://www.nba.com",
+    `Sec-Fetch-Dest` = "empty",
+    `Accept-Language` = "en-US,en;q=0.9",
+    `Sec-Fetch-Mode` = "cors",
+    `Host` = "stats.nba.com",
+    `User-Agent` = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    `Referer` = "https://www.nba.com/",
+    `Accept-Encoding` = "gzip, deflate, br",
+    `Connection` = "keep-alive"
+)
+
+params = list(
+    `DateFrom` = "",
+    `DateTo` = "",
+    `GameSegment` = "",
+    `ISTRound` = "",
+    `LastNGames` = "0",
+    `LeagueID` = "00",
+    `Location` = "",
+    `MeasureType` = "Base", # "Base" "Advanced" "Four Factors" "Misc" "Scoring"
+    `Month` = "0",
+    `OpponentTeamID` = "0",
+    `Outcome` = "",
+    `PORound` = "0",
+    `PaceAdjust` = "N",
+    `PerMode` = "Totals",
+    `Period` = "0",
+    `PlusMinus` = "N",
+    `Rank` = "N",
+    `Season` = "2022-23",
+    `SeasonSegment` = "",
+    `SeasonType` = "Regular Season",
+    `ShotClockRange` = "",
+    `VsConference` = "",
+    `VsDivision` = ""
+)
+
+res <- httr::GET(url = "https://stats.nba.com/stats/teamgamelogs",
+                 httr::add_headers(.headers=headers), query = params)
+data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+column_names <- data$headers %>% as.character()  
+dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+
+
+
+
+#### Scrape a single stat category ----
+# Define common headers and parameters
+headers = c(
+    `Sec-Fetch-Site` = "same-site",
+    `Accept` = "*/*",
+    `Origin` = "https://www.nba.com",
+    `Sec-Fetch-Dest` = "empty",
+    `Accept-Language` = "en-US,en;q=0.9",
+    `Sec-Fetch-Mode` = "cors",
+    `Host` = "stats.nba.com",
+    `User-Agent` = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    `Referer` = "https://www.nba.com/",
+    `Accept-Encoding` = "gzip, deflate, br",
+    `Connection` = "keep-alive"
+)
+
+params = list(
+    `DateFrom` = "",
+    `DateTo` = "",
+    `GameSegment` = "",
+    `ISTRound` = "",
+    `LastNGames` = "0",
+    `LeagueID` = "00",
+    `Location` = "",
+    `MeasureType` = "Base", # "Base" "Advanced" "Four Factors" "Misc" "Scoring"
+    `Month` = "0",
+    `OpponentTeamID` = "0",
+    `Outcome` = "",
+    `PORound` = "0",
+    `PaceAdjust` = "N",
+    `PerMode` = "Totals",
+    `Period` = "0",
+    `PlusMinus` = "N",
+    `Rank` = "N",
+    `Season` = "2022-23",
+    `SeasonSegment` = "",
+    `SeasonType` = "Regular Season",
+    `ShotClockRange` = "",
+    `VsConference` = "",
+    `VsDivision` = ""
+)
+
+# Define the range of years you want to scrape
+start_year <- 1996
+end_year <- 2022
+
+# Initialize an empty data frame to store the results
+all_data <- data.frame()
+
+# Loop through the years and scrape data
+for (year in start_year:end_year) {
+    # Convert the year to the "YYYY-YY" format
+    season <- sprintf("%d-%02d", year, (year + 1) %% 100)
+    
+    # Update the Season parameter in the params list
+    params$Season <- season
+    
+    # Make the HTTP request
+    res <- httr::GET(url = "https://stats.nba.com/stats/teamgamelogs",
+                     httr::add_headers(.headers = headers), query = params)
+    data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+    column_names <- data$headers %>% as.character()  
+    dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+    
+    # Append the data to the all_data data frame
+    all_data <- bind_rows(all_data, dt)
+    
+    print(season)
+}
+
+# Now, 'all_data' contains data for all the years from 1996-97 to 2022-23
+all_data_list[["Traditional"]] <- all_data
+
+
+
+
+
+
+#### Scrape all stat categories ----
+headers = c(
+    `Sec-Fetch-Site` = "same-site",
+    `Accept` = "*/*",
+    `Origin` = "https://www.nba.com",
+    `Sec-Fetch-Dest` = "empty",
+    `Accept-Language` = "en-US,en;q=0.9",
+    `Sec-Fetch-Mode` = "cors",
+    `Host` = "stats.nba.com",
+    `User-Agent` = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    `Referer` = "https://www.nba.com/",
+    `Accept-Encoding` = "gzip, deflate, br",
+    `Connection` = "keep-alive"
+)
+
+params = list(
+    `DateFrom` = "",
+    `DateTo` = "",
+    `GameSegment` = "",
+    `ISTRound` = "",
+    `LastNGames` = "0",
+    `LeagueID` = "00",
+    `Location` = "",
+    `MeasureType` = "Base", # "Base" "Advanced" "Four Factors" "Misc" "Scoring"
+    `Month` = "0",
+    `OpponentTeamID` = "0",
+    `Outcome` = "",
+    `PORound` = "0",
+    `PaceAdjust` = "N",
+    `PerMode` = "Totals",
+    `Period` = "0",
+    `PlusMinus` = "N",
+    `Rank` = "N",
+    `Season` = "2022-23",
+    `SeasonSegment` = "",
+    `SeasonType` = "Regular Season",
+    `ShotClockRange` = "",
+    `VsConference` = "",
+    `VsDivision` = ""
+)
+
+# Define the range of years you want to scrape
+start_year <- 1996
+end_year <- 2022
+
+# Define the list of MeasureType values
+measure_types <- c("Base", "Advanced", "Four Factors", "Misc", "Scoring")
+
+# Initialize an empty list to store the data frames
+all_data_list <- list()
+
+# Loop through the measure types
+for (measure_type in measure_types) {
+    # Initialize an empty data frame for the current measure type
+    all_data <- data.frame()
+    
+    # Loop through the years and scrape data
+    for (year in start_year:end_year) {
+        # Convert the year to the "YYYY-YY" format
+        season <- sprintf("%d-%02d", year, (year + 1) %% 100)
+        
+        # Update the MeasureType and Season parameters in the params list
+        params$MeasureType <- measure_type
+        params$Season <- season
+        
+        # Make the HTTP request
+        res <- httr::GET(url = "https://stats.nba.com/stats/teamgamelogs",
+                         httr::add_headers(.headers = headers), query = params)
+        data <- httr::content(res) %>% .[['resultSets']] %>% .[[1]]
+        column_names <- data$headers %>% as.character()
+        dt <- rbindlist(data$rowSet) %>% setnames(column_names)
+        
+        # Append the data to the current measure type data frame
+        all_data <- bind_rows(all_data, dt)
+        
+        print(season)
+    }
+    
+    # Store the data frame in the list with a name based on the measure type
+    all_data_list[[measure_type]] <- all_data
+    
+    print(measure_type)
+}
+
+# Now, you have a list of data frames (all_data_Base, all_data_Advanced, etc.)
+# Each data frame contains data for all seasons for the respective MeasureType
 
