@@ -366,7 +366,7 @@ params = list(
     `LastNGames` = "0",
     `LeagueID` = "00",
     `Location` = "",
-    `MeasureType` = "Base", # "Base" "Advanced" "Four Factors" "Misc" "Scoring"
+    `MeasureType` = "Scoring", # "Base" "Advanced" "Four Factors" "Misc" "Scoring"
     `Month` = "0",
     `OpponentTeamID` = "0",
     `Outcome` = "",
@@ -385,7 +385,7 @@ params = list(
 )
 
 # Define the range of years you want to scrape
-start_year <- 1996
+start_year <- 2010
 end_year <- 2022
 
 # Initialize an empty data frame to store the results
@@ -462,7 +462,7 @@ params = list(
 )
 
 # Define the range of years you want to scrape
-start_year <- 1996
+start_year <- 2010
 end_year <- 2022
 
 # Define the list of MeasureType values
