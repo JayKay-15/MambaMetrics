@@ -7,7 +7,6 @@ library(tidyverse)
 library(stringr)
 library(ggplot2)
 library(gganimate)
-library(lubridate)
 library(ggalt)
 
 tm_shots <- teams_shots(teams = "Los Angeles Lakers",
