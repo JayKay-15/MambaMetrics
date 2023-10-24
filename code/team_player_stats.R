@@ -3,7 +3,6 @@
 library(tidyverse)
 library(data.table)
 library(magrittr)
-library(lubridate)
 library(nbastatR)
 library(gt)
 library(gtExtras)
