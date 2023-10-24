@@ -2,7 +2,6 @@
 
 library(nbastatR)
 library(tidyverse)
-library(lubridate)
 library(gt)
 library(gtExtras)
 
