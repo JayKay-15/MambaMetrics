@@ -628,10 +628,6 @@ openxlsx::write.xlsx(dt, file = "./output/isolation_off.xlsx")
 #     jsonlite::fromJSON(simplifyVector = T)
 
 
-
-
-
-
-
-
+all_data_list_team <- read_rds(all_data_list, file = "all_data_list_team.RDS")
+all_data_list_player <- read_rds(all_data_list, file = "all_data_list_player.RDS")
 
