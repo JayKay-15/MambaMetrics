@@ -369,14 +369,14 @@ pbp_full <- win_prob %>%
 
 
 
+saveRDS(pbp2, "./pbp_working")
+saveRDS(win_prob, "./win_prob_working")
 
 
 
 
 
-
-pbp <-
-    pbp2 %>%
+pbp <- pbp_full %>%
     separate(
         "pctimestring",
         into = c("minutes_remaining_quarter", "seconds_remaining_quarter"),
@@ -706,7 +706,7 @@ rm(games, event_changes, play_logs_all, new_pbp, subs_made, others_qtr,
 
 
 
-
+#### play by play ----
 headers <- c(
     `Host` = 'stats.nba.com',
     `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
@@ -737,7 +737,7 @@ data <- data %>% set_names(json_names) %>% clean_names()
 
 
 
-
+#### win probability ----
 headers <- c(
     `Host` = 'stats.nba.com',
     `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
@@ -791,7 +791,7 @@ data <- data %>%
 
 
 
-
+#### fanduel ----
 headers <- c(
     `Host` = 'stats.nba.com',
     `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
