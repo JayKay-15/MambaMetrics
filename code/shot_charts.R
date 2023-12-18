@@ -9,7 +9,7 @@ library(prismatic)
 library(extrafont)
 library(cowplot)
 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+
 options(dplyr.summarise.inform = FALSE)
 # options(tidyverse.quiet = TRUE)
 
@@ -1347,3 +1347,11 @@ shot_scatter_player("Luka Doncic")
 shot_chart_team("Dallas Mavericks")
 shot_heatmap_team("Dallas Mavericks")
 shot_scatter_team("Dallas Mavericks")
+
+
+
+# review all code for improvements
+
+
+
+
