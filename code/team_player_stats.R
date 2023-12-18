@@ -3,11 +3,9 @@
 library(tidyverse)
 library(data.table)
 library(magrittr)
-library(nbastatR)
 library(gt)
 library(gtExtras)
 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 
 team_stats <- function(x) {
     
@@ -2437,3 +2435,12 @@ team_logs_game("Advanced", "0022200512") # Base - Advanced
 player_logs_game("Advanced", "0022200512") # Base - Advanced
 team_logs_team("Advanced", "Dallas Mavericks") # Base - Advanced
 player_logs_team("Advanced", "Dallas Mavericks") # Base - Advanced
+
+
+# add seasons to functions
+# clean function to make measure type dynamic -- if_else to display viz
+# review all code for improvements
+
+
+
+
