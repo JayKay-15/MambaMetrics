@@ -1,12 +1,9 @@
 ### Live Stats -----------------------------------------------------
 
-library(nbastatR)
 library(tidyverse)
 library(gt)
 library(gtExtras)
 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
-rm(list=ls())
 
 lg_avg <- dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), "../nba_sql_db/nba_db"), "league_avg_current") %>%
     collect() %>%
@@ -622,3 +619,9 @@ player_stats <- function(gm) {
 scoreboard('2022-12-31')
 team_stats(0022200542)
 player_stats(0022200542)
+
+
+
+# add dynamic league average
+# review all code for improvements
+
