@@ -830,7 +830,7 @@ scrape_nba_schedule <- function(seasons) {
 }
 
 
-df <- scrape_nba_schedule(2022:2024)
+df <- scrape_nba_schedule(2023)
 
 wp_df <- df %>%
     filter(location == "away") %>%
@@ -840,6 +840,128 @@ wp_df <- df %>%
 games <- unique(df$game_id)
 games <- games[1:25]
 games2 <- games[1:5]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# loop that pauses 1 minute between scrapes
+game_ids <- unique(df$game_id)
+games_per_batch <- 20
+game_counter <- 0
+pbp_df <- data.frame()
+wp_df <- data.frame()
+
+
+for (game_id in game_ids) {
+    
+    if (game_counter >= games_per_batch) {
+        Sys.sleep(90)
+        game_counter <- 0
+    }
+    
+    game_counter <- game_counter + 1
+    
+    # print(game_id)
+    
+    headers <- c(
+        `Host` = 'stats.nba.com',
+        `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+        `Accept` = 'application/json, text/plain, */*',
+        `Accept-Language` = 'en-US,en;q=0.5',
+        `Accept-Encoding` = 'gzip, deflate, br',
+        `x-nba-stats-origin` = 'stats',
+        `x-nba-stats-token` = 'true',
+        `Connection` = 'keep-alive',
+        `Referer` = 'https =//stats.nba.com/',
+        `Pragma` = 'no-cache',
+        `Cache-Control` = 'no-cache'
+    )
+    
+    res <- httr::GET(url = paste0("https://stats.nba.com/stats/playbyplayv2?GameID=",game_id,"&StartPeriod=0&EndPeriod=12"),
+                     httr::add_headers(.headers=headers))
+    
+    json <- res$content %>% rawToChar() %>% jsonlite::fromJSON(simplifyVector = T)
+    
+    data <- json$resultSets$rowSet[[1]] %>%
+        data.frame(stringsAsFactors = F) %>%
+        as_tibble()
+    
+    json_names <- json$resultSets$headers[[1]]
+    
+    data <- data %>% set_names(json_names) %>% clean_names()
+    
+    pbp_df <- bind_rows(pbp_df, data)
+    
+    print(paste0("Getting Game ", game_id))
+    
+    
+    
+    headers <- c(
+        `Host` = 'stats.nba.com',
+        `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+        `Accept` = 'application/json, text/plain, */*',
+        `Accept-Language` = 'en-US,en;q=0.5',
+        `Accept-Encoding` = 'gzip, deflate, br',
+        `x-nba-stats-origin` = 'stats',
+        `x-nba-stats-token` = 'true',
+        `Connection` = 'keep-alive',
+        `Referer` = 'https =//stats.nba.com/',
+        `Pragma` = 'no-cache',
+        `Cache-Control` = 'no-cache'
+    )
+    
+    res <- httr::GET(url = paste0("https://stats.nba.com/stats/winprobabilitypbp?GameID=",game_id,"&StartPeriod=0&EndPeriod=12&StartRange=0&EndRange=12&RangeType=1&Runtype=each%20second"),
+                     httr::add_headers(.headers=headers))
+    
+    json <- res$content %>%
+        rawToChar() %>%
+        jsonlite::fromJSON(simplifyVector = T)
+    
+    data <- json$resultSets$rowSet[[1]] %>%
+        data.frame(stringsAsFactors = F) %>%
+        as_tibble()
+    
+    json_names <- json$resultSets$headers[[1]]
+    
+    df_metadata <- json$resultSets$rowSet[[2]] %>%
+        data.frame(stringsAsFactors = F) %>%
+        as_tibble()
+    
+    names_md <- json$resultSets$headers[[2]]
+    
+    df_metadata <- df_metadata %>%
+        set_names(names_md) %>%
+        clean_names() %>%
+        mutate(game_date = game_date %>% lubridate::mdy()) %>%
+        select(-dplyr::matches("pts"))
+    
+    names_md <- names(df_metadata)
+    
+    data <- data %>%
+        set_names(json_names) %>%
+        clean_names() %>%
+        left_join(df_metadata, by = "game_id") %>%
+        select(one_of(names_md), everything()) %>%
+        suppressMessages()
+    
+    wp_df <- bind_rows(wp_df, data)
+    
+    print(paste0("Getting Game ", game_id))
+    
+    
+    
+}
 
 
 
