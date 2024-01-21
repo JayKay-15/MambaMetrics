@@ -963,10 +963,10 @@ for (game_id in game_ids) {
     
     }, error = function(e) {
         # Print an error message
-        cat("Error in processing game ", game_id, ": ", conditionMessage(e), "\n")
+        cat("Error in processing game ", game_id, ": ",
+            conditionMessage(e), "\n")
         
-        # Skip the current iteration of the loop
-        next
+        return(NULL) # return NULL to indicate that there was an error
     })
     
 }
