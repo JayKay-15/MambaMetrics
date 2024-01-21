@@ -855,7 +855,7 @@ games2 <- games[1:5]
 
 
 
-# loop that pauses 1 minute between scrapes
+# loop that pauses 90 seconds between scrapes
 game_ids <- unique(df$game_id)
 games_per_batch <- 20
 game_counter <- 0
@@ -871,6 +871,8 @@ for (game_id in game_ids) {
     }
     
     game_counter <- game_counter + 1
+    
+    tryCatch({
     
     # print(game_id)
     
@@ -959,7 +961,13 @@ for (game_id in game_ids) {
     
     print(paste0("Getting Game ", game_id))
     
-    
+    }, error = function(e) {
+        # Print an error message
+        cat("Error in processing game ", game_id, ": ", conditionMessage(e), "\n")
+        
+        # Skip the current iteration of the loop
+        next
+    })
     
 }
 
