@@ -608,7 +608,7 @@ sum(pbp_stats$away_fgm, na.rm = T)
 
 
 
-# figure out how to join these? What kind of transfomation did I do the first time?
+# figure out how to join these? What kind of transformation did I do the first time?
 pbp <- readRDS("./pbp_working")
 wp_df <- readRDS("./win_prob_working")
 
