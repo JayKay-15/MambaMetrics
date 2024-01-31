@@ -608,11 +608,12 @@ sum(pbp_stats$away_fgm, na.rm = T)
 
 
 
-
-
+# figure out how to join these? What kind of transfomation did I do the first time?
+pbp <- readRDS("./pbp_working")
+wp_df <- readRDS("./win_prob_working")
 
 pbp_wp <- pbp %>%
-    left_join(wp_df) %>%
+    left_join(wp_df, by = c("game_id", c("eventnum" = "event_num"))) %>%
     distinct() %>%
     separate(
         "pctimestring",
@@ -734,7 +735,7 @@ ggplot(data = plot_data, aes(x = game_min, y = away_win_prob)) +
 
 
 
-
+#### working pbp & wp scraper ----
 generate_headers <- function() {
     headers <- c(
         `Sec-Fetch-Site` = "same-site",
@@ -830,34 +831,13 @@ scrape_nba_schedule <- function(seasons) {
 }
 
 
-df <- scrape_nba_schedule(2023)
-
-wp_df <- df %>%
-    filter(location == "away") %>%
-    select(game_id, away_abr = team_abbreviation, home_abr = opp_abbreviation,
-           team_winner)
-
-games <- unique(df$game_id)
-games <- games[1:25]
-games2 <- games[1:5]
+df <- scrape_nba_schedule(2024)
+df <- df[1:500,]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# loop that pauses 90 seconds between scrapes
+# loop that pauses 5 minutes between scrapes - 100 games at a time
 game_ids <- unique(df$game_id)
-games_per_batch <- 20
+games_per_batch <- 100
 game_counter <- 0
 pbp_df <- data.frame()
 wp_df <- data.frame()
@@ -866,7 +846,7 @@ wp_df <- data.frame()
 for (game_id in game_ids) {
     
     if (game_counter >= games_per_batch) {
-        Sys.sleep(90)
+        Sys.sleep(300)
         game_counter <- 0
     }
     
@@ -970,6 +950,27 @@ for (game_id in game_ids) {
     })
     
 }
+
+pbp_df_hold <- pbp_df
+wp_df_hold <- wp_df
+
+saveRDS(pbp_df_hold, "/Users/Jesse/Desktop/pbp_20204.rds")
+saveRDS(wp_df_hold, "/Users/Jesse/Desktop/wp_2024.rds")
+
+
+
+
+
+
+# df1 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2019_full.rds")
+# df2 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2020_full.rds")
+# df3 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2021_full.rds")
+# df4 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2022_full.rds")
+# df5 <- readRDS("/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2023_full.rds")
+# 
+# df <- bind_rows(df1,df2,df3,df4,df5)
+# 
+# saveRDS(df, "/Users/Jesse/Documents/MyStuff/NBA Data/MambaMetrics/pbp_files/wp_2019_2023.rds")
 
 
 
