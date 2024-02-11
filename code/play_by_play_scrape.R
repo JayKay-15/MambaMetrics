@@ -3,6 +3,8 @@ library(janitor)
 
 options(scipen = 999999)
 
+
+#### nbastatR method ----
 make_url <- function(datatype = NULL,
                      SeasonType = "",
                      LeagueID = "",
@@ -132,12 +134,6 @@ data <- data %>% set_names(actual_names) %>% clean_names()
 data
 
 
-
-
-# --------------
-
-
-
 curl_chinazi <- function(url = "https://stats.nba.com/stats/leaguegamelog?Counter=1000&Season=2019-20&Direction=DESC&LeagueID=00&PlayerOrTeam=P&SeasonType=Regular%20Season&Sorter=DATE") {
     
     
@@ -182,8 +178,6 @@ curl_chinazi <- function(url = "https://stats.nba.com/stats/leaguegamelog?Counte
 }
 
 
-
-
 get_pbp2 <-
     function(game_id = 21601112,
              period_start = 0,
@@ -221,9 +215,6 @@ get_pbp2 <-
 
 
 pbp2 <- get_pbp2()
-
-
-
 
 
 get_win_prob <- function(game_id = 21601112,
@@ -289,10 +280,6 @@ get_win_prob <- function(game_id = 21601112,
 win_prob <- get_win_prob()
 
 
-
-
-
-
 get_fanduel <-
     function(game_id = 21700003,
              return_message = TRUE) {
@@ -329,22 +316,10 @@ get_fanduel <-
         
     }
 
-
-
 fanduel <- get_fanduel()
 
 
-
-
-
-saveRDS(pbp2, "./pbp_working")
-saveRDS(win_prob, "./win_prob_working")
-
-
-
-
-games <- "0022300421"
-
+##### individual pbp & wp & fanduel functions ----
 
 #### play by play ----
 scrape_nba_play_by_play <- function(games) {
@@ -390,7 +365,6 @@ scrape_nba_play_by_play <- function(games) {
 }
 
 pbp <- scrape_nba_play_by_play(games)
-
 
 #### win probability ----
 scrape_nba_win_probability <- function(games) {
@@ -458,7 +432,6 @@ scrape_nba_win_probability <- function(games) {
 }
 
 win_prob <- scrape_nba_win_probability(games)
-
 
 #### fanduel ----
 scrape_fanduel <- function(game_id = "0022200334") {
@@ -832,133 +805,143 @@ scrape_nba_schedule <- function(seasons) {
 
 
 df <- scrape_nba_schedule(2024)
-df <- df[1:500,]
+game_ids <- df[1:10,]
 
 
-# loop that pauses 5 minutes between scrapes - 100 games at a time
-game_ids <- unique(df$game_id)
-games_per_batch <- 100
-game_counter <- 0
-pbp_df <- data.frame()
-wp_df <- data.frame()
 
-
-for (game_id in game_ids) {
+#### play by play & win probability scraper ----
+scrape_nba_play_by_play <- function(game_ids) {
     
-    if (game_counter >= games_per_batch) {
-        Sys.sleep(300)
-        game_counter <- 0
+    # loop that pauses 5 minutes between scrapes - 100 games at a time
+    game_ids <- unique(game_ids)
+    sleeper <- 300
+    games_per_batch <- 100
+    game_counter <- 0
+    pbp_df <- data.frame()
+    wp_df <- data.frame()
+    
+    
+    for (game_id in game_ids) {
+        
+        if (game_counter >= games_per_batch) {
+            Sys.sleep(sleeper)
+            game_counter <- 0
+        }
+        
+        game_counter <- game_counter + 1
+        
+        tryCatch({
+            
+            # print(game_id)
+            
+            headers <- c(
+                `Host` = 'stats.nba.com',
+                `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+                `Accept` = 'application/json, text/plain, */*',
+                `Accept-Language` = 'en-US,en;q=0.5',
+                `Accept-Encoding` = 'gzip, deflate, br',
+                `x-nba-stats-origin` = 'stats',
+                `x-nba-stats-token` = 'true',
+                `Connection` = 'keep-alive',
+                `Referer` = 'https =//stats.nba.com/',
+                `Pragma` = 'no-cache',
+                `Cache-Control` = 'no-cache'
+            )
+            
+            res <- httr::GET(url = paste0("https://stats.nba.com/stats/playbyplayv2?GameID=",game_id,"&StartPeriod=0&EndPeriod=12"),
+                             httr::add_headers(.headers=headers))
+            
+            json <- res$content %>% rawToChar() %>% jsonlite::fromJSON(simplifyVector = T)
+            
+            data <- json$resultSets$rowSet[[1]] %>%
+                data.frame(stringsAsFactors = F) %>%
+                as_tibble()
+            
+            json_names <- json$resultSets$headers[[1]]
+            
+            data <- data %>% set_names(json_names) %>% clean_names()
+            
+            pbp_df <- bind_rows(pbp_df, data)
+            
+            print(paste0("Getting Game ", game_id))
+            
+            
+            
+            headers <- c(
+                `Host` = 'stats.nba.com',
+                `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
+                `Accept` = 'application/json, text/plain, */*',
+                `Accept-Language` = 'en-US,en;q=0.5',
+                `Accept-Encoding` = 'gzip, deflate, br',
+                `x-nba-stats-origin` = 'stats',
+                `x-nba-stats-token` = 'true',
+                `Connection` = 'keep-alive',
+                `Referer` = 'https =//stats.nba.com/',
+                `Pragma` = 'no-cache',
+                `Cache-Control` = 'no-cache'
+            )
+            
+            res <- httr::GET(url = paste0("https://stats.nba.com/stats/winprobabilitypbp?GameID=",game_id,"&StartPeriod=0&EndPeriod=12&StartRange=0&EndRange=12&RangeType=1&Runtype=each%20second"),
+                             httr::add_headers(.headers=headers))
+            
+            json <- res$content %>%
+                rawToChar() %>%
+                jsonlite::fromJSON(simplifyVector = T)
+            
+            data <- json$resultSets$rowSet[[1]] %>%
+                data.frame(stringsAsFactors = F) %>%
+                as_tibble()
+            
+            json_names <- json$resultSets$headers[[1]]
+            
+            df_metadata <- json$resultSets$rowSet[[2]] %>%
+                data.frame(stringsAsFactors = F) %>%
+                as_tibble()
+            
+            names_md <- json$resultSets$headers[[2]]
+            
+            df_metadata <- df_metadata %>%
+                set_names(names_md) %>%
+                clean_names() %>%
+                mutate(game_date = game_date %>% lubridate::mdy()) %>%
+                select(-dplyr::matches("pts"))
+            
+            names_md <- names(df_metadata)
+            
+            data <- data %>%
+                set_names(json_names) %>%
+                clean_names() %>%
+                left_join(df_metadata, by = "game_id") %>%
+                select(one_of(names_md), everything()) %>%
+                suppressMessages()
+            
+            wp_df <- bind_rows(wp_df, data)
+            
+            print(paste0("Getting Game ", game_id))
+            
+        }, error = function(e) {
+            # Print an error message
+            cat("Error in processing game ", game_id, ": ",
+                conditionMessage(e), "\n")
+            
+            return(NULL) # return NULL to indicate that there was an error
+        })
+        
     }
     
-    game_counter <- game_counter + 1
-    
-    tryCatch({
-    
-    # print(game_id)
-    
-    headers <- c(
-        `Host` = 'stats.nba.com',
-        `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
-        `Accept` = 'application/json, text/plain, */*',
-        `Accept-Language` = 'en-US,en;q=0.5',
-        `Accept-Encoding` = 'gzip, deflate, br',
-        `x-nba-stats-origin` = 'stats',
-        `x-nba-stats-token` = 'true',
-        `Connection` = 'keep-alive',
-        `Referer` = 'https =//stats.nba.com/',
-        `Pragma` = 'no-cache',
-        `Cache-Control` = 'no-cache'
-    )
-    
-    res <- httr::GET(url = paste0("https://stats.nba.com/stats/playbyplayv2?GameID=",game_id,"&StartPeriod=0&EndPeriod=12"),
-                     httr::add_headers(.headers=headers))
-    
-    json <- res$content %>% rawToChar() %>% jsonlite::fromJSON(simplifyVector = T)
-    
-    data <- json$resultSets$rowSet[[1]] %>%
-        data.frame(stringsAsFactors = F) %>%
-        as_tibble()
-    
-    json_names <- json$resultSets$headers[[1]]
-    
-    data <- data %>% set_names(json_names) %>% clean_names()
-    
-    pbp_df <- bind_rows(pbp_df, data)
-    
-    print(paste0("Getting Game ", game_id))
-    
-    
-    
-    headers <- c(
-        `Host` = 'stats.nba.com',
-        `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
-        `Accept` = 'application/json, text/plain, */*',
-        `Accept-Language` = 'en-US,en;q=0.5',
-        `Accept-Encoding` = 'gzip, deflate, br',
-        `x-nba-stats-origin` = 'stats',
-        `x-nba-stats-token` = 'true',
-        `Connection` = 'keep-alive',
-        `Referer` = 'https =//stats.nba.com/',
-        `Pragma` = 'no-cache',
-        `Cache-Control` = 'no-cache'
-    )
-    
-    res <- httr::GET(url = paste0("https://stats.nba.com/stats/winprobabilitypbp?GameID=",game_id,"&StartPeriod=0&EndPeriod=12&StartRange=0&EndRange=12&RangeType=1&Runtype=each%20second"),
-                     httr::add_headers(.headers=headers))
-    
-    json <- res$content %>%
-        rawToChar() %>%
-        jsonlite::fromJSON(simplifyVector = T)
-    
-    data <- json$resultSets$rowSet[[1]] %>%
-        data.frame(stringsAsFactors = F) %>%
-        as_tibble()
-    
-    json_names <- json$resultSets$headers[[1]]
-    
-    df_metadata <- json$resultSets$rowSet[[2]] %>%
-        data.frame(stringsAsFactors = F) %>%
-        as_tibble()
-    
-    names_md <- json$resultSets$headers[[2]]
-    
-    df_metadata <- df_metadata %>%
-        set_names(names_md) %>%
-        clean_names() %>%
-        mutate(game_date = game_date %>% lubridate::mdy()) %>%
-        select(-dplyr::matches("pts"))
-    
-    names_md <- names(df_metadata)
-    
-    data <- data %>%
-        set_names(json_names) %>%
-        clean_names() %>%
-        left_join(df_metadata, by = "game_id") %>%
-        select(one_of(names_md), everything()) %>%
-        suppressMessages()
-    
-    wp_df <- bind_rows(wp_df, data)
-    
-    print(paste0("Getting Game ", game_id))
-    
-    }, error = function(e) {
-        # Print an error message
-        cat("Error in processing game ", game_id, ": ",
-            conditionMessage(e), "\n")
-        
-        return(NULL) # return NULL to indicate that there was an error
-    })
-    
+    pbp_df <<- pbp_df
+    wp_df <<- wp_df
+
 }
+
+scrape_nba_play_by_play(game_ids)
+
 
 pbp_df_hold <- pbp_df
 wp_df_hold <- wp_df
 
 saveRDS(pbp_df_hold, "/Users/Jesse/Desktop/pbp_20204.rds")
 saveRDS(wp_df_hold, "/Users/Jesse/Desktop/wp_2024.rds")
-
-
-
 
 
 
