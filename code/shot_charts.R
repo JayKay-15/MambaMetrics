@@ -9,25 +9,29 @@ library(prismatic)
 library(extrafont)
 library(cowplot)
 
+library(RSQLite)
+library(DBI)
 
 options(dplyr.summarise.inform = FALSE)
 # options(tidyverse.quiet = TRUE)
 
-# Court dimensions & themes
-width <- 50
-height <- 94 / 2
-key_height <- 19
-inner_key_width <- 12
-outer_key_width <- 16
-backboard_width <- 6
-backboard_offset <- 4
-neck_length <- 0.5
-hoop_radius <- 0.75
-hoop_center_y <- backboard_offset + neck_length + hoop_radius
-three_point_radius <- 23.75
-three_point_side_radius <- 22
-three_point_side_height <- 14
+NBAdb <- dbConnect(SQLite(), "../nba_sql_db/nba_db")
 
+shots_processed <- tbl(NBAdb, "all_shots_processed") %>%
+    collect() %>%
+    filter(season_year == 2023) %>%
+    mutate(game_date = as_date(game_date, origin ="1970-01-01"))
+
+league_avg_processed <- tbl(NBAdb, "league_avg_processed") %>%
+    collect() %>%
+    filter(season_year == 2023)
+
+nba_schedule <- tbl(NBAdb, "all_nba_scores") %>%
+    collect()
+
+dbDisconnect(NBAdb)
+
+# Court themes -----------------------------------------------------------------
 court_themes <- list(
     light = list(
         court = 'floralwhite',
@@ -49,44 +53,62 @@ court_themes <- list(
     )
 )
 
-# Court drawing function --------------------------------------------------
-
-circle_points <- function(center = c(0, 0), radius = 1, npoints = 360) {
-    angles <- seq(0, 2 * pi, length.out = npoints)
-    return(tibble(x = center[1] + radius * cos(angles),
-                      y = center[2] + radius * sin(angles)))
-}
+# Court drawing & chart functions ----------------------------------------------
 
 plot_court <- function(court_theme = court_themes$light, use_short_three = FALSE) {
+    
+    # Court dimensions & themes
+    width <- 50
+    height <- 94 / 2
+    key_height <- 19
+    inner_key_width <- 12
+    outer_key_width <- 16
+    backboard_width <- 6
+    backboard_offset <- 4
+    neck_length <- 0.5
+    hoop_radius <- 0.75
+    hoop_center_y <- backboard_offset + neck_length + hoop_radius
+    three_point_radius <- 23.75
+    three_point_side_radius <- 22
+    three_point_side_height <- 14
+    
+    circle_points <- function(center = c(0, 0), radius = 1, npoints = 360) {
+        angles <- seq(0, 2 * pi, length.out = npoints)
+        return(tibble(x = center[1] + radius * cos(angles),
+                      y = center[2] + radius * sin(angles)))
+    }
     
     if (use_short_three) {
         three_point_radius = 22
         three_point_side_height = 0
     }
     
-    court_points = tibble(
+    court_points <- tibble(
         x = c(width / 2, width / 2, -width / 2, -width / 2, width / 2),
         y = c(height, 0, 0, height, height),
         desc = "perimeter"
     )
     
-    court_points = bind_rows(court_points , tibble(
+    court_points <- bind_rows(court_points , tibble(
         x = c(outer_key_width / 2, outer_key_width / 2, -outer_key_width / 2, -outer_key_width / 2),
         y = c(0, key_height, key_height, 0),
         desc = "outer_key"
     ))
     
-    court_points = bind_rows(court_points , tibble(
+    court_points <- bind_rows(court_points , tibble(
         x = c(-backboard_width / 2, backboard_width / 2),
         y = c(backboard_offset, backboard_offset),
         desc = "backboard"
     ))
     
-    court_points = bind_rows(court_points , tibble(
-        x = c(0, 0), y = c(backboard_offset, backboard_offset + neck_length), desc = "neck"
+    court_points <- bind_rows(court_points , tibble(
+        x = c(0, 0),
+        y = c(backboard_offset, backboard_offset + neck_length),
+        desc = "neck"
     ))
     
-    foul_circle <- circle_points(center = c(0, key_height), radius = inner_key_width / 2)
+    foul_circle <- circle_points(center = c(0, key_height),
+                                 radius = inner_key_width / 2)
     
     foul_circle_top <- foul_circle %>% 
         filter(y > key_height) %>%
@@ -102,14 +124,16 @@ plot_court <- function(court_theme = court_themes$light, use_short_three = FALSE
         filter(angle_group %% 2 == 0) %>%
         select(x, y, desc)
     
-    hoop <- circle_points(center = c(0, hoop_center_y), radius = hoop_radius) %>%
+    hoop <- circle_points(center = c(0, hoop_center_y),
+                          radius = hoop_radius) %>%
         mutate(desc = "hoop")
     
     restricted <- circle_points(center = c(0, hoop_center_y), radius = 4) %>%
         filter(y >= hoop_center_y) %>%
         mutate(desc = "restricted")
     
-    three_point_circle = circle_points(center = c(0, hoop_center_y), radius = three_point_radius) %>%
+    three_point_circle <- circle_points(center = c(0, hoop_center_y),
+                                        radius = three_point_radius) %>%
         filter(y >= three_point_side_height, y >= hoop_center_y)
     
     three_point_line <- tibble(
@@ -140,13 +164,15 @@ plot_court <- function(court_theme = court_themes$light, use_short_three = FALSE
         theme(
             text = element_text(color = court_theme$text),
             # plot.background = element_rect(fill = 'floralwhite', color = 'floralwhite'),
-            panel.background = element_rect(fill = court_theme$court, color = court_theme$court),
+            panel.background = element_rect(fill = court_theme$court,
+                                            color = court_theme$court),
             panel.grid = element_blank(),
             panel.border = element_blank(),
             axis.text = element_blank(),
             axis.title = element_blank(),
             axis.ticks = element_blank(),
-            legend.background = element_rect(fill = court_theme$court, color = court_theme$court),
+            legend.background = element_rect(fill = court_theme$court,
+                                             color = court_theme$court),
             legend.margin = margin(-1, 0, 0, 0, unit = "lines"),
             legend.position = "bottom",
             legend.key = element_blank(),
@@ -154,6 +180,106 @@ plot_court <- function(court_theme = court_themes$light, use_short_three = FALSE
         )
 }
 # plot_court(court_themes$light)
+
+generate_shot_chart <- function(shots_chart, court_theme = court_themes$dark) {
+    
+    # Convert shot location data to binned-hexagon data  ----------------------
+    
+    xbnds <- c(plyr::round_any(min(shots_chart$loc_x), 1.5, floor) - 1e-6, 
+               plyr::round_any(max(shots_chart$loc_x), 1.5, ceiling) + 1e-6)
+    xbins <- diff(xbnds) / 1.5
+    ybnds <- c(plyr::round_any(min(shots_chart$loc_y), 1.5, floor) - 1e-6, 
+               plyr::round_any(max(shots_chart$loc_y), 1.5, ceiling) + 1e-6)
+    ybins <- diff(ybnds) / 1.5
+    
+    
+    hb <- hexbin(
+        x = shots_chart$loc_x,
+        y = shots_chart$loc_y,
+        xbins = xbins,
+        xbnds = xbnds,
+        ybnds = ybnds,
+        shape = ybins / xbins,
+        IDs = TRUE
+    )
+    
+    shots_chart <- shots_chart %>% mutate(hexbin_id = hb@cID)
+    
+    hexbin_stats <- shots_chart %>%
+        group_by(hexbin_id) %>%
+        summarize(
+            hex_attempts = n(),
+            hex_pct = mean(shot_made_numeric),
+            hex_points_scored = sum(shot_made_numeric * shot_value),
+            hex_points_per_shot = mean(shot_made_numeric * shot_value)
+        ) 
+    
+    hexbin_ids_to_zones <- shots_chart %>%
+        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
+        summarize(attempts = n()) %>%
+        ungroup() %>%
+        arrange(hexbin_id, desc(attempts)) %>%
+        group_by(hexbin_id) %>%
+        filter(row_number() == 1) %>%
+        select(hexbin_id, shot_zone_range, shot_zone_area)
+    
+    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones,
+                               by = "hexbin_id")
+    
+    # from hexbin package, see: https://github.com/edzer/hexbin
+    sx <- hb@xbins / diff(hb@xbnds)
+    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
+    dx <- 1 / (2 * sx)
+    dy <- 1 / (2 * sqrt(3) * sy)
+    origin_coords <- hexcoords(dx, dy)
+    
+    hex_centers <- hcell2xy(hb)
+    
+    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
+        data.frame(
+            x = origin_coords$x + hex_centers$x[i],
+            y = origin_coords$y + hex_centers$y[i],
+            center_x = hex_centers$x[i],
+            center_y = hex_centers$y[i],
+            hexbin_id = hb@cell[i]
+        )
+    }))
+    
+    hex_data <- inner_join(hexbin_coords, hexbin_stats,
+                           by = "hexbin_id")
+    
+    zone_stats <- shots_chart %>%
+        group_by(shot_zone_range, shot_zone_area) %>%
+        reframe(
+            zone_attempts = n(),
+            zone_pct = mean(shot_made_numeric),
+            zone_points_scored = sum(shot_made_numeric * shot_value),
+            zone_points_per_shot = mean(shot_made_numeric * shot_value),
+            team_name
+        ) %>%
+        distinct()
+    
+    
+    league_zone_stats <- league_avg_processed %>%
+        group_by(shot_zone_range, shot_zone_area) %>%
+        summarize(league_pct = sum(fgm) / sum(fga))
+    
+    hex_data <- hex_data %>%
+        inner_join(zone_stats,
+                   by = c("shot_zone_area", "shot_zone_range")) %>%
+        inner_join(league_zone_stats,
+                   by = c("shot_zone_area", "shot_zone_range")) %>%
+        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max(hex_attempts) + 1),
+               adj_x = center_x + radius_factor * (x - center_x),
+               adj_y = center_y + radius_factor * (y - center_y),
+               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
+               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
+               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
+        )
+    
+    return(hex_data)
+    
+}
 
 generate_heatmap_chart <- function(shots, base_court, court_theme = court_themes$dark) {
     
@@ -184,7 +310,8 @@ generate_heatmap_chart <- function(shots, base_court, court_theme = court_themes
               legend.position = 'bottom',
               legend.box.margin=margin(-30,0,15,0),
               legend.key = element_blank(),
-              legend.background = element_rect(fill = court_theme$court, color = court_theme$court),
+              legend.background = element_rect(fill = court_theme$court,
+                                               color = court_theme$court),
               plot.title = element_text(hjust = 0.5, vjust = -1, face = "bold"),
               plot.subtitle = element_text(hjust = 0.5, size = 9, vjust = -.5), 
               plot.caption = element_text(face = "italic", size = 8), 
@@ -192,8 +319,8 @@ generate_heatmap_chart <- function(shots, base_court, court_theme = court_themes
     
 }
 
-generate_scatter_chart <- function(shots, base_court, court_theme = court_themes$light,
-                                   alpha = 0.8, size = 5) {
+generate_scatter_chart <- function(shots, base_court, court_theme = court_themes$light, alpha = 0.8, size = 5) {
+    
     base_court +
         geom_point(
             data = shots,
@@ -212,7 +339,8 @@ generate_scatter_chart <- function(shots, base_court, court_theme = court_themes
               legend.position = 'bottom',
               legend.box.margin=margin(-30,0,15,0),
               legend.key = element_blank(),
-              legend.background = element_rect(fill = court_theme$court, color = court_theme$court),
+              legend.background = element_rect(fill = court_theme$court,
+                                               color = court_theme$court),
               plot.title = element_text(hjust = 0.5, vjust = -1, face = "bold"),
               plot.subtitle = element_text(hjust = 0.5, size = 9, vjust = -.5), 
               plot.caption = element_text(face = "italic", size = 8), 
@@ -221,376 +349,20 @@ generate_scatter_chart <- function(shots, base_court, court_theme = court_themes
 
 
 
-generate_shot_chart <- function(shots, base_court, court_theme = court_themes$dark) {
+# Game shot chart function players  --------------------------------------------
+shot_chart_player_gm <- function(player, game) {
     
-    # Convert shot location data to binned-hexagon data  ----------------------
+    shots_chart <- shots_processed %>%
+        filter(player_name == player & game_id == game)
     
-    xbnds <- c(plyr::round_any(min(shots$loc_x), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_x), 1.5, ceiling) + 1e-6)
-    xbins <- diff(xbnds) / 1.5
-    ybnds <- c(plyr::round_any(min(shots$loc_y), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_y), 1.5, ceiling) + 1e-6)
-    ybins <- diff(ybnds) / 1.5
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
-    
-    hb <- hexbin(
-        x = shots$loc_x,
-        y = shots$loc_y,
-        xbins = xbins,
-        xbnds = xbnds,
-        ybnds = ybnds,
-        shape = ybins / xbins,
-        IDs = TRUE
-    )
-    
-    shots <- shots %>% mutate(hexbin_id = hb@cID)
-    
-    hexbin_stats <- shots %>%
-        mutate(hexbin_id = hb@cID) %>%
-        group_by(hexbin_id) %>%
-        summarize(
-            hex_attempts = n(),
-            hex_pct = mean(shot_made_numeric),
-            hex_points_scored = sum(shot_made_numeric * shot_value),
-            hex_points_per_shot = mean(shot_made_numeric * shot_value)
-        ) 
-    
-    hexbin_ids_to_zones <- shots %>%
-        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
-        summarize(attempts = n()) %>%
-        ungroup() %>%
-        arrange(hexbin_id, desc(attempts)) %>%
-        group_by(hexbin_id) %>%
-        filter(row_number() == 1) %>%
-        select(hexbin_id, shot_zone_range, shot_zone_area)
-    
-    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones, by = "hexbin_id")
-    
-    # from hexbin package, see: https://github.com/edzer/hexbin
-    sx <- hb@xbins / diff(hb@xbnds)
-    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
-    dx <- 1 / (2 * sx)
-    dy <- 1 / (2 * sqrt(3) * sy)
-    origin_coords <- hexcoords(dx, dy)
-    
-    hex_centers <- hcell2xy(hb)
-    
-    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
-        data.frame(
-            x = origin_coords$x + hex_centers$x[i],
-            y = origin_coords$y + hex_centers$y[i],
-            center_x = hex_centers$x[i],
-            center_y = hex_centers$y[i],
-            hexbin_id = hb@cell[i]
-        )
-    }))
-    
-    hex_data <- inner_join(hexbin_coords, hexbin_stats, by = "hexbin_id")
-    
-    
-    grouped_shots <- shots %>%
-        group_by(shot_zone_range, shot_zone_area)
-    
-    zone_stats <- grouped_shots %>%
-        summarize(
-            zone_attempts = n(),
-            zone_pct = mean(shot_made_numeric),
-            zone_points_scored = sum(shot_made_numeric * shot_value),
-            zone_points_per_shot = mean(shot_made_numeric * shot_value),
-            team_name
-        )
-    
-    
-    league_zone_stats <- league_averages %>%
-        group_by(shot_zone_range, shot_zone_area) %>%
-        summarize(league_pct = sum(fgm) / sum(fga))
-    
-    
-    join_keys <- c("shot_zone_area", "shot_zone_range")
-    
-    hex_data <- hex_data %>%
-        inner_join(zone_stats, by = join_keys) %>%
-        inner_join(league_zone_stats, by = join_keys)
-    
-    max_hex_attempts <- max(hex_data$hex_attempts)
-    
-    hex_data <- hex_data %>%
-        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max_hex_attempts + 1),
-               adj_x = center_x + radius_factor * (x - center_x),
-               adj_y = center_y + radius_factor * (y - center_y),
-               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
-               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
-               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
-        )
-    
-    names(shots) <- sub(".*\\.", "", names(shots))
-    names(league_averages) <- sub(".*\\.", "", names(league_averages))
-    
-    df <- hex_data
-    
-    names(df) <- sub(".*\\.", "", names(df))
-    
-}
-
-
-# Shot location scrape  ------------------------------------------
-
-shot_loc <- function(yr) {
-    
-    headers = c(
-        `Accept` = '*/*',
-        `Origin` = 'https://www.nba.com',
-        `Accept-Encoding` = 'gzip, deflate, br',
-        `Host` = 'stats.nba.com',
-        `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15',
-        `Accept-Language` = 'en-US,en;q=0.9',
-        `Referer` = 'https://www.nba.com/',
-        `Connection` = 'keep-alive'
-    )
-    
-    
-    params = list(
-        `AheadBehind` = '',
-        # `CFID` = '155',
-        # `CFPARAMS` = '2021-22',
-        `ClutchTime` = '',
-        `Conference` = '',
-        `ContextFilter` = '',
-        `ContextMeasure` = 'FGA',
-        `DateFrom` = '',
-        `DateTo` = '',
-        `Division` = '',
-        `EndPeriod` = '10',
-        `EndRange` = '28800',
-        `GROUP_ID` = '',
-        `GameEventID` = '',
-        `GameID` = '',
-        `GameSegment` = '',
-        `GroupID` = '',
-        `GroupMode` = '',
-        `GroupQuantity` = '5',
-        `LastNGames` = '0',
-        `LeagueID` = '00',
-        `Location` = '',
-        `Month` = '0',
-        `OnOff` = '',
-        `OppPlayerID` = '',
-        `OpponentTeamID` = '0',
-        `Outcome` = '',
-        `PORound` = '0',
-        `Period` = '0',
-        `PlayerID` = '0',
-        `PlayerID1` = '',
-        `PlayerID2` = '',
-        `PlayerID3` = '',
-        `PlayerID4` = '',
-        `PlayerID5` = '',
-        `PlayerPosition` = '',
-        `PointDiff` = '',
-        `Position` = '',
-        `RangeType` = '0',
-        `RookieYear` = '',
-        `Season` = as.character(yr),
-        `SeasonSegment` = '',
-        `SeasonType` = 'Regular Season',
-        `ShotClockRange` = '',
-        `StartPeriod` = '1',
-        `StartRange` = '0',
-        `StarterBench` = '',
-        `TeamID` = '0',
-        `VsConference` = '',
-        `VsDivision` = '',
-        `VsPlayerID1` = '',
-        `VsPlayerID2` = '',
-        `VsPlayerID3` = '',
-        `VsPlayerID4` = '',
-        `VsPlayerID5` = '',
-        `VsTeamID` = ''
-    )
-    
-    res <- httr::GET(url = 'https://stats.nba.com/stats/shotchartdetail', httr::add_headers(.headers=headers), query = params)
-    
-    data <- content(res)
-    
-    raw_shots_data <- data$resultSets[[1]]$rowSet
-    col_names <- tolower(as.character(data$resultSets[[1]]$headers))
-    
-    if (length(raw_shots_data) == 0) {
-        shots <- data.frame(
-            matrix(nrow = 0, ncol = length(col_names))
-        )
-    } else {
-        shots <- data.frame(
-            matrix(
-                unlist(raw_shots_data),
-                ncol = length(col_names),
-                byrow = TRUE
-            )
-        )
-    }
-    
-    shots <- as_tibble(shots)
-    names(shots) <- col_names
-    
-    shots <- shots %>%
-        mutate(loc_x = as.numeric(as.character(loc_x)) / 10,
-               loc_y = as.numeric(as.character(loc_y)) / 10 + hoop_center_y,
-               shot_distance = as.numeric(as.character(shot_distance)),
-               shot_made_numeric = as.numeric(as.character(shot_made_flag)),
-               shot_made_flag = factor(shot_made_flag, levels = c("1", "0"), labels = c("made", "missed")),
-               shot_attempted_flag = as.numeric(as.character(shot_attempted_flag)),
-               shot_value = ifelse(tolower(shot_type) == "3pt field goal", 3, 2),
-               game_date = as.Date(game_date, format = "%Y%m%d")
-        )
-    
-    raw_league_avg_data <- data$resultSets[[2]]$rowSet
-    league_avg_names <- tolower(as.character(data$resultSets[[2]]$headers))
-    league_averages <- as_tibble(data.frame(
-        matrix(unlist(raw_league_avg_data), ncol = length(league_avg_names), byrow = TRUE)
-    ))
-    
-    names(league_averages) <- league_avg_names
-    
-    league_averages <- league_averages %>%
-        mutate(fga = as.numeric(as.character(fga)),
-               fgm = as.numeric(as.character(fgm)),
-               fg_pct = as.numeric(as.character(fg_pct)),
-               shot_value = ifelse(shot_zone_basic %in% c("Above the Break 3", "Backcourt", "Left Corner 3", "Right Corner 3"), 3, 2)
-        )
-    
-    shots_heatmap <- shots
-   
-    assign("shots", shots, envir = .GlobalEnv)
-    assign("shots_heatmap", shots_heatmap, envir = .GlobalEnv)
-    assign("league_averages", league_averages, envir = .GlobalEnv)
-    
-}
-
-shot_loc("2022-23")
-
-sched <- nbastatR::current_schedule()
-
-# Game shot chart function players  ------------------------------------------
-shot_chart_player_gm <- function(player, gm) {
-    
-    shots <- shots %>%
-        filter(player_name == player & game_id == gm)
-    
-    game_info <- sched %>%
-        filter(slugGame == gm)
-    
-    # Convert shot location data to binned-hexagon data  ----------------------
-    
-    xbnds <- c(plyr::round_any(min(shots$loc_x), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_x), 1.5, ceiling) + 1e-6)
-    xbins <- diff(xbnds) / 1.5
-    ybnds <- c(plyr::round_any(min(shots$loc_y), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_y), 1.5, ceiling) + 1e-6)
-    ybins <- diff(ybnds) / 1.5
-    
-    
-    hb <- hexbin(
-        x = shots$loc_x,
-        y = shots$loc_y,
-        xbins = xbins,
-        xbnds = xbnds,
-        ybnds = ybnds,
-        shape = ybins / xbins,
-        IDs = TRUE
-    )
-    
-    shots <- shots %>% mutate(hexbin_id = hb@cID)
-    
-    hexbin_stats <- shots %>%
-        mutate(hexbin_id = hb@cID) %>%
-        group_by(hexbin_id) %>%
-        summarize(
-            hex_attempts = n(),
-            hex_pct = mean(shot_made_numeric),
-            hex_points_scored = sum(shot_made_numeric * shot_value),
-            hex_points_per_shot = mean(shot_made_numeric * shot_value)
-        ) 
-    
-    hexbin_ids_to_zones <- shots %>%
-        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
-        summarize(attempts = n()) %>%
-        ungroup() %>%
-        arrange(hexbin_id, desc(attempts)) %>%
-        group_by(hexbin_id) %>%
-        filter(row_number() == 1) %>%
-        select(hexbin_id, shot_zone_range, shot_zone_area)
-    
-    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones, by = "hexbin_id")
-    
-    # from hexbin package, see: https://github.com/edzer/hexbin
-    sx <- hb@xbins / diff(hb@xbnds)
-    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
-    dx <- 1 / (2 * sx)
-    dy <- 1 / (2 * sqrt(3) * sy)
-    origin_coords <- hexcoords(dx, dy)
-    
-    hex_centers <- hcell2xy(hb)
-    
-    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
-        data.frame(
-            x = origin_coords$x + hex_centers$x[i],
-            y = origin_coords$y + hex_centers$y[i],
-            center_x = hex_centers$x[i],
-            center_y = hex_centers$y[i],
-            hexbin_id = hb@cell[i]
-        )
-    }))
-    
-    hex_data <- inner_join(hexbin_coords, hexbin_stats, by = "hexbin_id")
-    
-    
-    grouped_shots <- shots %>%
-        group_by(shot_zone_range, shot_zone_area)
-    
-    zone_stats <- grouped_shots %>%
-        summarize(
-            zone_attempts = n(),
-            zone_pct = mean(shot_made_numeric),
-            zone_points_scored = sum(shot_made_numeric * shot_value),
-            zone_points_per_shot = mean(shot_made_numeric * shot_value),
-            team_name
-        )
-    
-    
-    league_zone_stats <- league_averages %>%
-        group_by(shot_zone_range, shot_zone_area) %>%
-        summarize(league_pct = sum(fgm) / sum(fga))
-    
-    
-    join_keys <- c("shot_zone_area", "shot_zone_range")
-    
-    hex_data <- hex_data %>%
-        inner_join(zone_stats, by = join_keys) %>%
-        inner_join(league_zone_stats, by = join_keys)
-    
-    max_hex_attempts <- max(hex_data$hex_attempts)
-    
-    hex_data <- hex_data %>%
-        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max_hex_attempts + 1),
-               adj_x = center_x + radius_factor * (x - center_x),
-               adj_y = center_y + radius_factor * (y - center_y),
-               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
-               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
-               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
-        )
-    
-    names(shots) <- sub(".*\\.", "", names(shots))
-    names(league_averages) <- sub(".*\\.", "", names(league_averages))
-    
-    df <- hex_data
-    
-    names(df) <- sub(".*\\.", "", names(df))
-    
-    
+    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
-            data = df,
+            data = hd,
             aes(
                 x = adj_x,
                 y = adj_y,
@@ -628,22 +400,22 @@ shot_chart_player_gm <- function(player, gm) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = player,
-             subtitle = paste0(game_info$slugTeamAway, " vs ", game_info$slugTeamHome, "  ",
-                               game_info$dateGame))
+             subtitle = paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
+                               game_info$game_date))
     
     ggdraw(p) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
 }
 
-shot_heatmap_player_gm <- function(player, gm) {
+shot_heatmap_player_gm <- function(player, game) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(player_name == player & game_id == gm) %>%
+    shots_heatmap <- shots_processed %>%
+        filter(player_name == player & game_id == game) %>%
         filter(shot_zone_basic != "Restricted Area")
     
-    game_info <- sched %>%
-        filter(slugGame == gm)
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
     hm <- generate_heatmap_chart(shots_heatmap, plot_court(court_themes$dark))
     
@@ -655,34 +427,34 @@ shot_heatmap_player_gm <- function(player, gm) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0(game_info$slugTeamAway, " vs ", game_info$slugTeamHome, "  ",
-                          game_info$dateGame), size = 14, color = "white", fontfamily = "Gill Sans MT", ) +
+        draw_label(paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
+                          game_info$game_date), size = 14, color = "white", fontfamily = "Gill Sans MT", ) +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
     
 }
 
-shot_scatter_player_gm <- function(player, gm) {
+shot_scatter_player_gm <- function(player, game) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(player_name == player & game_id == gm)
+    shots_scatter <- shots_processed %>%
+        filter(player_name == player & game_id == game)
     
-    game_info <- sched %>%
-        filter(slugGame == gm)
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
-    hm <- generate_scatter_chart(shots_heatmap, plot_court(court_themes$light))
+    sc <- generate_scatter_chart(shots_scatter, plot_court(court_themes$light))
     
-    p <- ggdraw(hm) + 
+    p <- ggdraw(sc) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
         draw_label(player, fontface='bold', size = 18, color = "black", fontfamily = "Gill Sans MT", ) +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
-    subtitle <- ggdraw() + 
-        draw_label(paste0(game_info$slugTeamAway, " vs ", game_info$slugTeamHome, "  ",
-                          game_info$dateGame), size = 14, color = "black", fontfamily = "Gill Sans MT", ) +
+    subtitle <- ggdraw() +
+        draw_label(paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
+                          game_info$game_date), size = 14, color = "black", fontfamily = "Gill Sans MT", ) +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -690,127 +462,20 @@ shot_scatter_player_gm <- function(player, gm) {
 }
 
 
-# Game shot chart function teams   ------------------------------------------
-shot_chart_team_gm <- function(team, gm) {
+# Game shot chart function teams   ---------------------------------------------
+shot_chart_team_gm <- function(team, game) {
     
-    shots <- shots %>%
-        filter(team_name == team & game_id == gm)
+    shots_chart <- shots_processed %>%
+        filter(team_name == team & game_id == game)
     
-    game_info <- sched %>%
-        filter(slugGame == gm)
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
-    # Convert shot location data to binned-hexagon data  ----------------------
-    
-    xbnds <- c(plyr::round_any(min(shots$loc_x), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_x), 1.5, ceiling) + 1e-6)
-    xbins <- diff(xbnds) / 1.5
-    ybnds <- c(plyr::round_any(min(shots$loc_y), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_y), 1.5, ceiling) + 1e-6)
-    ybins <- diff(ybnds) / 1.5
-    
-    
-    hb <- hexbin(
-        x = shots$loc_x,
-        y = shots$loc_y,
-        xbins = xbins,
-        xbnds = xbnds,
-        ybnds = ybnds,
-        shape = ybins / xbins,
-        IDs = TRUE
-    )
-    
-    shots <- shots %>% mutate(hexbin_id = hb@cID)
-    
-    hexbin_stats <- shots %>%
-        mutate(hexbin_id = hb@cID) %>%
-        group_by(hexbin_id) %>%
-        summarize(
-            hex_attempts = n(),
-            hex_pct = mean(shot_made_numeric),
-            hex_points_scored = sum(shot_made_numeric * shot_value),
-            hex_points_per_shot = mean(shot_made_numeric * shot_value)
-        ) 
-    
-    hexbin_ids_to_zones <- shots %>%
-        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
-        summarize(attempts = n()) %>%
-        ungroup() %>%
-        arrange(hexbin_id, desc(attempts)) %>%
-        group_by(hexbin_id) %>%
-        filter(row_number() == 1) %>%
-        select(hexbin_id, shot_zone_range, shot_zone_area)
-    
-    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones, by = "hexbin_id")
-    
-    # from hexbin package, see: https://github.com/edzer/hexbin
-    sx <- hb@xbins / diff(hb@xbnds)
-    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
-    dx <- 1 / (2 * sx)
-    dy <- 1 / (2 * sqrt(3) * sy)
-    origin_coords <- hexcoords(dx, dy)
-    
-    hex_centers <- hcell2xy(hb)
-    
-    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
-        data.frame(
-            x = origin_coords$x + hex_centers$x[i],
-            y = origin_coords$y + hex_centers$y[i],
-            center_x = hex_centers$x[i],
-            center_y = hex_centers$y[i],
-            hexbin_id = hb@cell[i]
-        )
-    }))
-    
-    hex_data <- inner_join(hexbin_coords, hexbin_stats, by = "hexbin_id")
-    
-    
-    grouped_shots <- shots %>%
-        group_by(shot_zone_range, shot_zone_area)
-    
-    zone_stats <- grouped_shots %>%
-        summarize(
-            zone_attempts = n(),
-            zone_pct = mean(shot_made_numeric),
-            zone_points_scored = sum(shot_made_numeric * shot_value),
-            zone_points_per_shot = mean(shot_made_numeric * shot_value),
-            team_name
-        )
-    
-    
-    league_zone_stats <- league_averages %>%
-        group_by(shot_zone_range, shot_zone_area) %>%
-        summarize(league_pct = sum(fgm) / sum(fga))
-    
-    
-    join_keys <- c("shot_zone_area", "shot_zone_range")
-    
-    hex_data <- hex_data %>%
-        inner_join(zone_stats, by = join_keys) %>%
-        inner_join(league_zone_stats, by = join_keys)
-    
-    max_hex_attempts <- max(hex_data$hex_attempts)
-    
-    hex_data <- hex_data %>%
-        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max_hex_attempts + 1),
-               adj_x = center_x + radius_factor * (x - center_x),
-               adj_y = center_y + radius_factor * (y - center_y),
-               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
-               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
-               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
-        )
-    
-    names(shots) <- sub(".*\\.", "", names(shots))
-    names(league_averages) <- sub(".*\\.", "", names(league_averages))
-    
-    df <- hex_data
-    
-    names(df) <- sub(".*\\.", "", names(df))
-    
-    
+    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
-            data = df,
+            data = hd,
             aes(
                 x = adj_x,
                 y = adj_y,
@@ -848,23 +513,23 @@ shot_chart_team_gm <- function(team, gm) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = team,
-             subtitle = paste0("vs ",if_else(game_info$nameTeamAway == team, 
-                                             game_info$nameTeamHome, 
-                                             game_info$nameTeamAway), "  ", game_info$dateGame))
+             subtitle = paste0("vs ",if_else(game_info$away_team_name == team, 
+                                             game_info$home_team_name, 
+                                             game_info$away_team_name), "  ", game_info$game_date))
     
     ggdraw(p) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
 }
 
-shot_heatmap_team_gm <- function(team, gm) {
+shot_heatmap_team_gm <- function(team, game) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(team_name == team & game_id == gm) %>%
+    shots_heatmap <- shots_processed %>%
+        filter(team_name == team & game_id == game) %>%
         filter(shot_zone_basic != "Restricted Area")
     
-    game_info <- sched %>%
-        filter(slugGame == gm)
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
     hm <- generate_heatmap_chart(shots_heatmap, plot_court(court_themes$dark))
     
@@ -876,9 +541,9 @@ shot_heatmap_team_gm <- function(team, gm) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0("vs ",if_else(game_info$nameTeamAway == team, 
-                                        game_info$nameTeamHome, 
-                                        game_info$nameTeamAway), "  ", game_info$dateGame),
+        draw_label(paste0("vs ",if_else(game_info$away_team_name == team, 
+                                        game_info$home_team_name, 
+                                        game_info$away_team_name), "  ", game_info$game_date),
                    size = 14, color = "white", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
@@ -886,17 +551,17 @@ shot_heatmap_team_gm <- function(team, gm) {
     
 }
 
-shot_scatter_team_gm <- function(team, gm) {
+shot_scatter_team_gm <- function(team, game) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(team_name == team & game_id == gm)
+    shots_scatter <- shots_processed %>%
+        filter(team_name == team & game_id == game)
     
-    game_info <- sched %>%
-        filter(slugGame == gm)
+    game_info <- nba_schedule %>%
+        filter(game_id == game)
     
-    hm <- generate_scatter_chart(shots_heatmap, plot_court(court_themes$light))
+    sc <- generate_scatter_chart(shots_scatter, plot_court(court_themes$light))
     
-    p <- ggdraw(hm) + 
+    p <- ggdraw(sc) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
@@ -904,9 +569,9 @@ shot_scatter_team_gm <- function(team, gm) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0("vs ",if_else(game_info$nameTeamAway == team, 
-                                        game_info$nameTeamHome, 
-                                        game_info$nameTeamAway), "  ", game_info$dateGame), 
+        draw_label(paste0("vs ",if_else(game_info$away_team_name == team, 
+                                        game_info$home_team_name, 
+                                        game_info$away_team_name), "  ", game_info$game_date), 
                    size = 14, color = "black", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
@@ -915,124 +580,19 @@ shot_scatter_team_gm <- function(team, gm) {
 }
 
 
-# Season shot chart function players   ------------------------------------------
-shot_chart_player <- function(player) {
+# Season shot chart function players   -----------------------------------------
+shot_chart_player <- function(player, season) {
     
-    shots <- shots %>%
-        filter(player_name == player)
+    shots_chart <- shots_processed %>%
+        filter(player_name == player & season_year == season) %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
-    # Convert shot location data to binned-hexagon data  ----------------------
-    
-    xbnds <- c(plyr::round_any(min(shots$loc_x), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_x), 1.5, ceiling) + 1e-6)
-    xbins <- diff(xbnds) / 1.5
-    ybnds <- c(plyr::round_any(min(shots$loc_y), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_y), 1.5, ceiling) + 1e-6)
-    ybins <- diff(ybnds) / 1.5
-    
-    
-    hb <- hexbin(
-        x = shots$loc_x,
-        y = shots$loc_y,
-        xbins = xbins,
-        xbnds = xbnds,
-        ybnds = ybnds,
-        shape = ybins / xbins,
-        IDs = TRUE
-    )
-    
-    shots <- shots %>% mutate(hexbin_id = hb@cID)
-    
-    hexbin_stats <- shots %>%
-        mutate(hexbin_id = hb@cID) %>%
-        group_by(hexbin_id) %>%
-        summarize(
-            hex_attempts = n(),
-            hex_pct = mean(shot_made_numeric),
-            hex_points_scored = sum(shot_made_numeric * shot_value),
-            hex_points_per_shot = mean(shot_made_numeric * shot_value)
-        ) 
-    
-    hexbin_ids_to_zones <- shots %>%
-        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
-        summarize(attempts = n()) %>%
-        ungroup() %>%
-        arrange(hexbin_id, desc(attempts)) %>%
-        group_by(hexbin_id) %>%
-        filter(row_number() == 1) %>%
-        select(hexbin_id, shot_zone_range, shot_zone_area)
-    
-    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones, by = "hexbin_id")
-    
-    # from hexbin package, see: https://github.com/edzer/hexbin
-    sx <- hb@xbins / diff(hb@xbnds)
-    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
-    dx <- 1 / (2 * sx)
-    dy <- 1 / (2 * sqrt(3) * sy)
-    origin_coords <- hexcoords(dx, dy)
-    
-    hex_centers <- hcell2xy(hb)
-    
-    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
-        data.frame(
-            x = origin_coords$x + hex_centers$x[i],
-            y = origin_coords$y + hex_centers$y[i],
-            center_x = hex_centers$x[i],
-            center_y = hex_centers$y[i],
-            hexbin_id = hb@cell[i]
-        )
-    }))
-    
-    hex_data <- inner_join(hexbin_coords, hexbin_stats, by = "hexbin_id")
-    
-    
-    grouped_shots <- shots %>%
-        group_by(shot_zone_range, shot_zone_area)
-    
-    zone_stats <- grouped_shots %>%
-        summarize(
-            zone_attempts = n(),
-            zone_pct = mean(shot_made_numeric),
-            zone_points_scored = sum(shot_made_numeric * shot_value),
-            zone_points_per_shot = mean(shot_made_numeric * shot_value),
-            team_name
-        )
-    
-    
-    league_zone_stats <- league_averages %>%
-        group_by(shot_zone_range, shot_zone_area) %>%
-        summarize(league_pct = sum(fgm) / sum(fga))
-    
-    
-    join_keys <- c("shot_zone_area", "shot_zone_range")
-    
-    hex_data <- hex_data %>%
-        inner_join(zone_stats, by = join_keys) %>%
-        inner_join(league_zone_stats, by = join_keys)
-    
-    max_hex_attempts <- max(hex_data$hex_attempts)
-    
-    hex_data <- hex_data %>%
-        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max_hex_attempts + 1),
-               adj_x = center_x + radius_factor * (x - center_x),
-               adj_y = center_y + radius_factor * (y - center_y),
-               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
-               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
-               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
-        )
-    
-    names(shots) <- sub(".*\\.", "", names(shots))
-    names(league_averages) <- sub(".*\\.", "", names(league_averages))
-    
-    df <- hex_data
-    
-    names(df) <- sub(".*\\.", "", names(df))
-    
-    
+    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
-            data = df,
+            data = hd,
             aes(
                 x = adj_x,
                 y = adj_y,
@@ -1070,18 +630,20 @@ shot_chart_player <- function(player) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = player,
-             subtitle = "2022-23 Regular Season")
+             subtitle = shots_chart$season)
     
     ggdraw(p) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
 }
 
-shot_heatmap_player <- function(player) {
+shot_heatmap_player <- function(player, season) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(player_name == player) %>%
-        filter(shot_zone_basic != "Restricted Area")
+    shots_heatmap <- shots_processed %>%
+        filter(player_name == player & season_year == season
+               & shot_zone_basic != "Restricted Area") %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
     hm <- generate_heatmap_chart(shots_heatmap, plot_court(court_themes$dark))
     
@@ -1093,21 +655,23 @@ shot_heatmap_player <- function(player) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label("2022-23 Regular Season", size = 14, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
     
 }
 
-shot_scatter_player <- function(player) {
+shot_scatter_player <- function(player, season) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(player_name == player)
+    shots_scatter <- shots_processed %>%
+        filter(player_name == player & season_year == season) %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
-    hm <- generate_scatter_chart(shots_heatmap, plot_court(court_themes$light))
+    sc <- generate_scatter_chart(shots_scatter, plot_court(court_themes$light))
     
-    p <- ggdraw(hm) + 
+    p <- ggdraw(sc) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
@@ -1115,7 +679,7 @@ shot_scatter_player <- function(player) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label("2022-23 Regular Season", size = 14, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -1123,131 +687,26 @@ shot_scatter_player <- function(player) {
 }
 
 
-# Season shot chart function teams   ------------------------------------------
-shot_chart_team <- function(team) {
+# Season shot chart function teams   -------------------------------------------
+shot_chart_team <- function(team, season) {
     
-    shots <- shots %>%
-        filter(team_name == team)
+    shots_chart <- shots_processed %>%
+        filter(team_name == team & season_year == season) %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
-    # Convert shot location data to binned-hexagon data  ----------------------
-    
-    xbnds <- c(plyr::round_any(min(shots$loc_x), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_x), 1.5, ceiling) + 1e-6)
-    xbins <- diff(xbnds) / 1.5
-    ybnds <- c(plyr::round_any(min(shots$loc_y), 1.5, floor) - 1e-6, 
-               plyr::round_any(max(shots$loc_y), 1.5, ceiling) + 1e-6)
-    ybins <- diff(ybnds) / 1.5
-    
-    
-    hb <- hexbin(
-        x = shots$loc_x,
-        y = shots$loc_y,
-        xbins = xbins,
-        xbnds = xbnds,
-        ybnds = ybnds,
-        shape = ybins / xbins,
-        IDs = TRUE
-    )
-    
-    shots <- shots %>% mutate(hexbin_id = hb@cID)
-    
-    hexbin_stats <- shots %>%
-        mutate(hexbin_id = hb@cID) %>%
-        group_by(hexbin_id) %>%
-        summarize(
-            hex_attempts = n(),
-            hex_pct = mean(shot_made_numeric),
-            hex_points_scored = sum(shot_made_numeric * shot_value),
-            hex_points_per_shot = mean(shot_made_numeric * shot_value)
-        ) 
-    
-    hexbin_ids_to_zones <- shots %>%
-        group_by(hexbin_id, shot_zone_range, shot_zone_area) %>%
-        summarize(attempts = n()) %>%
-        ungroup() %>%
-        arrange(hexbin_id, desc(attempts)) %>%
-        group_by(hexbin_id) %>%
-        filter(row_number() == 1) %>%
-        select(hexbin_id, shot_zone_range, shot_zone_area)
-    
-    hexbin_stats <- inner_join(hexbin_stats, hexbin_ids_to_zones, by = "hexbin_id")
-    
-    # from hexbin package, see: https://github.com/edzer/hexbin
-    sx <- hb@xbins / diff(hb@xbnds)
-    sy <- (hb@xbins * hb@shape) / diff(hb@ybnds)
-    dx <- 1 / (2 * sx)
-    dy <- 1 / (2 * sqrt(3) * sy)
-    origin_coords <- hexcoords(dx, dy)
-    
-    hex_centers <- hcell2xy(hb)
-    
-    hexbin_coords <- bind_rows(lapply(1:hb@ncells, function(i) {
-        data.frame(
-            x = origin_coords$x + hex_centers$x[i],
-            y = origin_coords$y + hex_centers$y[i],
-            center_x = hex_centers$x[i],
-            center_y = hex_centers$y[i],
-            hexbin_id = hb@cell[i]
-        )
-    }))
-    
-    hex_data <- inner_join(hexbin_coords, hexbin_stats, by = "hexbin_id")
-    
-    
-    grouped_shots <- shots %>%
-        group_by(shot_zone_range, shot_zone_area)
-    
-    zone_stats <- grouped_shots %>%
-        summarize(
-            zone_attempts = n(),
-            zone_pct = mean(shot_made_numeric),
-            zone_points_scored = sum(shot_made_numeric * shot_value),
-            zone_points_per_shot = mean(shot_made_numeric * shot_value),
-            team_name
-        )
-    
-    
-    league_zone_stats <- league_averages %>%
-        group_by(shot_zone_range, shot_zone_area) %>%
-        summarize(league_pct = sum(fgm) / sum(fga))
-    
-    
-    join_keys <- c("shot_zone_area", "shot_zone_range")
-    
-    hex_data <- hex_data %>%
-        inner_join(zone_stats, by = join_keys) %>%
-        inner_join(league_zone_stats, by = join_keys)
-    
-    max_hex_attempts <- max(hex_data$hex_attempts)
-    
-    hex_data <- hex_data %>%
-        mutate(radius_factor = 0.25 + (1 - 0.25) * log(hex_attempts + 1) / log(max_hex_attempts + 1),
-               adj_x = center_x + radius_factor * (x - center_x),
-               adj_y = center_y + radius_factor * (y - center_y),
-               bounded_fg_diff = pmin(pmax(zone_pct - league_pct, -0.15), 0.15),
-               bounded_fg_pct = pmin(pmax(zone_pct, 0.2), 0.7),
-               bounded_points_per_shot = pmin(pmax(zone_points_per_shot, 0.5), 1.5)
-        )
-    
-    names(shots) <- sub(".*\\.", "", names(shots))
-    names(league_averages) <- sub(".*\\.", "", names(league_averages))
-    
-    df <- hex_data
-    
-    names(df) <- sub(".*\\.", "", names(df))
-    
-    
+    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
-            data = df,
+            data = hd,
             aes(
                 x = adj_x,
                 y = adj_y,
                 group = hexbin_id, 
                 fill = bounded_fg_diff, 
                 color = after_scale(clr_darken(fill, .333))),
-            size = .25) + 
+            linewidth = .25) + 
         scale_x_continuous(limits = c(-27.5, 27.5)) + 
         scale_y_continuous(limits = c(0, 45)) +
         scale_fill_distiller(direction = -1, 
@@ -1278,18 +737,20 @@ shot_chart_team <- function(team) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = team,
-             subtitle = "2022-23 Regular Season")
+             subtitle = shots_chart$season)
     
     ggdraw(p) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
 }
 
-shot_heatmap_team <- function(team) {
+shot_heatmap_team <- function(team, season) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(team_name == team) %>%
-        filter(shot_zone_basic != "Restricted Area")
+    shots_heatmap <- shots_processed %>%
+        filter(team_name == team & season_year == season
+               & shot_zone_basic != "Restricted Area") %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
     hm <- generate_heatmap_chart(shots_heatmap, plot_court(court_themes$dark))
     
@@ -1301,21 +762,23 @@ shot_heatmap_team <- function(team) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label("2022-23 Regular Season", size = 14, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
     
 }
 
-shot_scatter_team <- function(team) {
+shot_scatter_team <- function(team, season) {
     
-    shots_heatmap <- shots_heatmap %>%
-        filter(team_name == team)
+    shots_scatter <- shots_processed %>%
+        filter(team_name == team & season_year == season) %>%
+        mutate(season = sprintf("%d-%02d", (season_year - 1),
+                                ((season_year - 1)  + 1) %% 100))
     
-    hm <- generate_scatter_chart(shots_heatmap, plot_court(court_themes$light))
+    sc <- generate_scatter_chart(shots_scatter, plot_court(court_themes$light))
     
-    p <- ggdraw(hm) + 
+    p <- ggdraw(sc) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
@@ -1323,35 +786,35 @@ shot_scatter_team <- function(team) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label("2022-23 Regular Season", size = 14, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "Gill Sans MT") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
     
 }
 
-### Run functions for game ----
-shot_chart_player_gm("Luka Doncic","0022200512")
-shot_heatmap_player_gm("Luka Doncic","0022200512")
-shot_scatter_player_gm("Luka Doncic","0022200512")
 
-shot_chart_team_gm("Dallas Mavericks","0022200512")
-shot_heatmap_team_gm("Dallas Mavericks","0022200512")
-shot_scatter_team_gm("Dallas Mavericks","0022200512")
+### Run functions for game ----
+shot_chart_player_gm("Luka Doncic","0022200013")
+shot_heatmap_player_gm("Luka Doncic","0022200013")
+shot_scatter_player_gm("Luka Doncic","0022200013")
+
+shot_chart_team_gm("Dallas Mavericks","0022200013")
+shot_heatmap_team_gm("Dallas Mavericks","0022200013")
+shot_scatter_team_gm("Dallas Mavericks","0022200013")
+
 
 ### Run functions for season ----
-shot_chart_player("Luka Doncic")
-shot_heatmap_player("Luka Doncic")
-shot_scatter_player("Luka Doncic")
+shot_chart_player("Luka Doncic", 2023)
+shot_heatmap_player("Luka Doncic", 2023)
+shot_scatter_player("Luka Doncic", 2023)
 
-shot_chart_team("Dallas Mavericks")
-shot_heatmap_team("Dallas Mavericks")
-shot_scatter_team("Dallas Mavericks")
-
-
-
-# review all code for improvements
+shot_chart_team("Dallas Mavericks", 2023)
+shot_heatmap_team("Dallas Mavericks", 2023)
+shot_scatter_team("Dallas Mavericks", 2023)
 
 
 
+
+#### fix league average for selected year & game info
 
