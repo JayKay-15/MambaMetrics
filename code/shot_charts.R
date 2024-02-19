@@ -27,7 +27,8 @@ league_avg_processed <- tbl(NBAdb, "league_avg_processed") %>%
     filter(season_year == 2023)
 
 nba_schedule <- tbl(NBAdb, "all_nba_scores") %>%
-    collect()
+    collect() %>%
+    mutate(game_date = as_date(game_date, origin ="1970-01-01"))
 
 dbDisconnect(NBAdb)
 
@@ -181,7 +182,7 @@ plot_court <- function(court_theme = court_themes$light, use_short_three = FALSE
 }
 # plot_court(court_themes$light)
 
-generate_shot_chart <- function(shots_chart, court_theme = court_themes$dark) {
+generate_shot_chart <- function(shots_chart, league_avg, court_theme = court_themes$dark) {
     
     # Convert shot location data to binned-hexagon data  ----------------------
     
@@ -260,7 +261,7 @@ generate_shot_chart <- function(shots_chart, court_theme = court_themes$dark) {
         distinct()
     
     
-    league_zone_stats <- league_avg_processed %>%
+    league_zone_stats <- league_avg %>%
         group_by(shot_zone_range, shot_zone_area) %>%
         summarize(league_pct = sum(fgm) / sum(fga))
     
@@ -302,7 +303,7 @@ generate_heatmap_chart <- function(shots, base_court, court_theme = court_themes
             option = "inferno",
             guide = guide_colorbar(barwidth = 15)
         ) +
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -331,7 +332,7 @@ generate_scatter_chart <- function(shots, base_court, court_theme = court_themes
             "",
             values = c(made = court_theme$made, missed = court_theme$missed)
         ) + 
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0.24, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -358,7 +359,11 @@ shot_chart_player_gm <- function(player, game) {
     game_info <- nba_schedule %>%
         filter(game_id == game)
     
-    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
+    league_avg <- league_avg_processed %>%
+        filter(season_year == game_info$season_year)
+    
+    hd <- generate_shot_chart(shots_chart, league_avg,
+                              plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
@@ -388,7 +393,7 @@ shot_chart_player_gm <- function(player, game) {
             title.vjust = 0,
             label.vjust = 3,
             nrow = 1))  +
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -400,7 +405,8 @@ shot_chart_player_gm <- function(player, game) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = player,
-             subtitle = paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
+             subtitle = paste0(game_info$team_name, " vs ",
+                               game_info$opp_team_name, "  ",
                                game_info$game_date))
     
     ggdraw(p) + 
@@ -423,12 +429,12 @@ shot_heatmap_player_gm <- function(player, game) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     title <- ggdraw() + 
-        draw_label(player, fontface='bold', size = 18, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(player, fontface='bold', size = 18, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
-                          game_info$game_date), size = 14, color = "white", fontfamily = "Gill Sans MT", ) +
+        draw_label(paste0(game_info$team_name, " vs ", game_info$opp_team_name, "  ",
+                          game_info$game_date), size = 14, color = "white", fontfamily = "sans", ) +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -449,12 +455,12 @@ shot_scatter_player_gm <- function(player, game) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
-        draw_label(player, fontface='bold', size = 18, color = "black", fontfamily = "Gill Sans MT", ) +
+        draw_label(player, fontface='bold', size = 18, color = "black", fontfamily = "sans", ) +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() +
-        draw_label(paste0(game_info$away_team_name, " vs ", game_info$home_team_name, "  ",
-                          game_info$game_date), size = 14, color = "black", fontfamily = "Gill Sans MT", ) +
+        draw_label(paste0(game_info$team_name, " vs ", game_info$opp_team_name, "  ",
+                          game_info$game_date), size = 14, color = "black", fontfamily = "sans", ) +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -471,7 +477,11 @@ shot_chart_team_gm <- function(team, game) {
     game_info <- nba_schedule %>%
         filter(game_id == game)
     
-    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
+    league_avg <- league_avg_processed %>%
+        filter(season_year == game_info$season_year)
+    
+    hd <- generate_shot_chart(shots_chart, league_avg,
+                              plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
@@ -501,7 +511,7 @@ shot_chart_team_gm <- function(team, game) {
             title.vjust = 0,
             label.vjust = 3,
             nrow = 1))  +
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -513,9 +523,9 @@ shot_chart_team_gm <- function(team, game) {
               plot.caption = element_text(face = "italic", size = 8), 
               plot.margin = margin(1, -5, 1, -5, "cm")) +
         labs(title = team,
-             subtitle = paste0("vs ",if_else(game_info$away_team_name == team, 
-                                             game_info$home_team_name, 
-                                             game_info$away_team_name), "  ", game_info$game_date))
+             subtitle = paste0("vs ",if_else(game_info$team_name == team, 
+                                             game_info$opp_team_name, 
+                                             game_info$team_name), "  ", game_info$game_date))
     
     ggdraw(p) + 
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
@@ -537,14 +547,14 @@ shot_heatmap_team_gm <- function(team, game) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     title <- ggdraw() + 
-        draw_label(team, fontface='bold', size = 18, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(team, fontface='bold', size = 18, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0("vs ",if_else(game_info$away_team_name == team, 
-                                        game_info$home_team_name, 
-                                        game_info$away_team_name), "  ", game_info$game_date),
-                   size = 14, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(paste0("vs ",if_else(game_info$team_name == team, 
+                                        game_info$opp_team_name, 
+                                        game_info$team_name), "  ", game_info$game_date),
+                   size = 14, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -565,14 +575,14 @@ shot_scatter_team_gm <- function(team, game) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
-        draw_label(team, fontface='bold', size = 18, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(team, fontface='bold', size = 18, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(paste0("vs ",if_else(game_info$away_team_name == team, 
-                                        game_info$home_team_name, 
-                                        game_info$away_team_name), "  ", game_info$game_date), 
-                   size = 14, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(paste0("vs ",if_else(game_info$team_name == team, 
+                                        game_info$opp_team_name, 
+                                        game_info$team_name), "  ", game_info$game_date), 
+                   size = 14, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -588,7 +598,11 @@ shot_chart_player <- function(player, season) {
         mutate(season = sprintf("%d-%02d", (season_year - 1),
                                 ((season_year - 1)  + 1) %% 100))
     
-    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
+    league_avg <- league_avg_processed %>%
+        filter(season_year == season)
+    
+    hd <- generate_shot_chart(shots_chart, league_avg,
+                              plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
@@ -618,7 +632,7 @@ shot_chart_player <- function(player, season) {
             title.vjust = 0,
             label.vjust = 3,
             nrow = 1))  +
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -651,11 +665,11 @@ shot_heatmap_player <- function(player, season) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     title <- ggdraw() + 
-        draw_label(player, fontface='bold', size = 18, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(player, fontface='bold', size = 18, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -675,11 +689,11 @@ shot_scatter_player <- function(player, season) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
-        draw_label(player, fontface='bold', size = 18, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(player, fontface='bold', size = 18, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -695,7 +709,11 @@ shot_chart_team <- function(team, season) {
         mutate(season = sprintf("%d-%02d", (season_year - 1),
                                 ((season_year - 1)  + 1) %% 100))
     
-    hd <- generate_shot_chart(shots_chart, plot_court(court_themes$dark))
+    league_avg <- league_avg_processed %>%
+        filter(season_year == season)
+    
+    hd <- generate_shot_chart(shots_chart, league_avg,
+                              plot_court(court_themes$dark))
     
     p <- plot_court(court_themes$light) +
         geom_polygon(
@@ -725,7 +743,7 @@ shot_chart_team <- function(team, season) {
             title.vjust = 0,
             label.vjust = 3,
             nrow = 1))  +
-        theme(text=element_text(size=14,  family="Gill Sans MT"), 
+        theme(text=element_text(size=14,  family="sans"), 
               legend.spacing.x = unit(0, 'cm'), 
               legend.title=element_text(size=12), 
               legend.text = element_text(size = rel(0.6)), 
@@ -758,11 +776,11 @@ shot_heatmap_team <- function(team, season) {
         theme(plot.background = element_rect(fill="black", color = NA))
     
     title <- ggdraw() + 
-        draw_label(team, fontface='bold', size = 18, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(team, fontface='bold', size = 18, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "Gill Sans MT") +
+        draw_label(shots_heatmap$season, size = 14, color = "white", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="black", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -782,11 +800,11 @@ shot_scatter_team <- function(team, season) {
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     title <- ggdraw() + 
-        draw_label(team, fontface='bold', size = 18, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(team, fontface='bold', size = 18, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     subtitle <- ggdraw() + 
-        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "Gill Sans MT") +
+        draw_label(shots_scatter$season, size = 14, color = "black", fontfamily = "sans") +
         theme(plot.background = element_rect(fill="floralwhite", color = NA))
     
     plot_grid(title, subtitle, p, ncol = 1, rel_heights = c(0.1, 0.1, 1))
@@ -814,7 +832,4 @@ shot_heatmap_team("Dallas Mavericks", 2023)
 shot_scatter_team("Dallas Mavericks", 2023)
 
 
-
-
-#### fix league average for selected year & game info
 
